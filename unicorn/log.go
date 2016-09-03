@@ -1,5 +1,7 @@
-package lib
-
+package unicorn
+/*
+ * 日志相关
+ */
 import (
     "fmt"
 )
@@ -13,5 +15,6 @@ func (MyLogger) Info(str interface{}){
 var Logger MyLogger
 
 func init() {
+    fmt.Println("Init log success")
     Logger = MyLogger{}
 }
