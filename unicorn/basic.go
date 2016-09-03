@@ -40,13 +40,11 @@ const (
 )
 
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
-type Plugin interface {
+type PluginIntfs interface {
     //构造请求
     GenReq() RawReqest
-
     //调用
     Call(req []byte, timeout time.Duration)([]byte, error)
-
     //检查响应
     CheckResp(rawReq RawReqest, rawResp RawResponse) *CallResult
 }

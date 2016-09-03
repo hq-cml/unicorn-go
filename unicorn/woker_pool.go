@@ -19,33 +19,33 @@ type WorkerPoolIntfs interface {
 }
 
 //接口的实现
-type workerPool struct {
+type WorkerPool struct {
     total  uint32     //池子容量，即最大协程数量
     pool   chan byte  //容器，利用带缓冲通道实现
     active bool       //是否激活标记
 }
 
 //*workerPool将会实现接口WorkerPoolIntfs
-func (wp *workerPool) Take() {
+func (wp *WorkerPool) Take() {
     <- wp.pool
 }
-func (wp *workerPool) Return() {
+func (wp *WorkerPool) Return() {
     wp.pool <- 1
 }
-func (wp *workerPool) Active() bool {
+func (wp *WorkerPool) Active() bool {
     return wp.active
 }
-func (wp *workerPool) Total() uint32 {
+func (wp *WorkerPool) Total() uint32 {
     return wp.total
 }
-func (wp *workerPool) Remaider() uint32 {
+func (wp *WorkerPool) Remaider() uint32 {
     //每取走一个goroutine，会从通道中取走一个元素
     //搜易通道的长度就是剩余goroutine的数量
     return uint32(len(wp.pool))
 }
 
 //初始化workerPool
-func (wp *workerPool) create(total uint32) bool {
+func (wp *WorkerPool) init(total uint32) bool {
     if wp.active {
         return false
     }
@@ -68,8 +68,8 @@ func (wp *workerPool) create(total uint32) bool {
 //实例化协程池，New开头的惯例
 //返回值是WorkerPoolIntfs的实现，所以是*workerPool
 func NewWorkerPool(total uint32) (WorkerPoolIntfs, error) {
-    wp := workerPool{}
-    if ok := wp.create(total); !ok {
+    wp := WorkerPool{}
+    if ok := wp.init(total); !ok {
         msg := fmt.Sprintf("Worker Pool init Failed. total=%d", total)
         return nil, errors.New(msg)
     }
