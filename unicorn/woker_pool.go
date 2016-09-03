@@ -1,4 +1,9 @@
 package unicorn
+
+import (
+    "fmt"
+    "errors"
+)
 /*
  * goroutine协程池实现
  * 利用缓冲通道，实现一个goroutine池子
@@ -39,7 +44,35 @@ func (wp *workerPool) Remaider() uint32 {
     return uint32(len(wp.pool))
 }
 
-//初始化
+//初始化workerPool
 func (wp *workerPool) create(total uint32) bool {
-    //if wp.active
+    if wp.active {
+        return false
+    }
+    if total == 0 {
+        return false
+    }
+
+    //初始化通道，带缓冲的！
+    ch := make(chan byte, total)
+    //将通道填满，表示协程池是满的
+    for i:=0; i<total; i++ {
+        ch <- 1
+    }
+    wp.pool = ch
+    wp.total = total
+    wp.active = true
+    return true
+}
+
+//实例化协程池，New开头的惯例
+//返回值是WorkerPoolIntfs的实现，所以是*workerPool
+func NewWorkerPool(total uint32) (WorkerPoolIntfs, error) {
+    wp := workerPool{}
+    if ok := wp.create(total); !ok {
+        msg := fmt.Sprintf("Worker Pool init Failed. total=%d", total)
+        return nil, errors.New(msg)
+    }
+
+    return &wp, nil
 }
