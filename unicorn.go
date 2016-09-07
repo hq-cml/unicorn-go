@@ -96,6 +96,8 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
     return unc, nil
 }
 
+//*Unicorn实现Unicorn接口
+
 
 func main() {
     //logger := lib.Logger{}
