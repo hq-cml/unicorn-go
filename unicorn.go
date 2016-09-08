@@ -156,6 +156,7 @@ func (unc *Unicorn) sendRequest() {
 
         var result *unicorn.CallResult
         raw_response_chan := make(chan *unicorn.RawResponse, 1)
+        //启动一个孙子goroutine
         go unc.interact(&raw_request, raw_response_chan)
 
 
