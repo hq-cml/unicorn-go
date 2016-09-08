@@ -26,7 +26,7 @@ type Unicorn struct {
     resultChan  chan *unicorn.CallResult //保存调用结果的通道
     plugin      unicorn.Plugin           //插件
     pool        unicorn.WorkerPool       //协程池
-    cancelSign  byte                     //取消发送后续结果的信号。
+    cancelSign  byte                     //取消发送后续结果的信号标记。
 
                                          //endSign     chan uint64          // 完结信号的传递通道，同时被用于传递调用执行计数。
                                          //callCount   uint64               // 调用执行计数。
@@ -98,6 +98,20 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
 
 //*Unicorn实现Unicorn接口
 
+
+//处理停止“信号”
+func (unc * Unicorn) handleStopSign() {
+    //信号标记变为1
+    unc.cancelSign = 1
+    unicorn.Logger.Info("handleStopSign. Closing result chan...")
+    //关闭结果存储通道
+    close(unc.resultChan)
+}
+
+//发送请求的主逻辑
+func (* Unicorn) genRequest() {
+
+}
 
 func main() {
     //logger := lib.Logger{}
