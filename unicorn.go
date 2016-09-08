@@ -108,9 +108,38 @@ func (unc * Unicorn) handleStopSign() {
     close(unc.resultChan)
 }
 
-//发送请求的主逻辑
-func (* Unicorn) genRequest() {
+//发送请求的主控制逻辑
+//通过节流阀throttle控制发送请求的强度
+//请求过程中不断检测stopSign，如果检测到，则将最终结果传入endSign
+func (unc* Unicorn) genRequest(throttle <-chan time.Time, endSign chan<- uint64) {
+    call_cnt := uint64(0)
 
+Loop:
+    //一个无限循环，只要满足条件，就发送请求
+    for ;;call_cnt++ {
+        //带default的select分支，是不会出现阻塞的
+        select {
+        case <- unc.stopSign:
+            unc.handleStopSign()
+            endSign <- call_cnt
+            break Loop
+        default:
+        }
+
+        //实际发送请求
+        unc.sendRequest()
+
+        //阻塞等待节流阀throttle信号
+        if unc.qps > 0 {
+            select {
+            case <-throttle: //空转一次，进入下次循环，发送请求
+            case <-unc.stopSign:
+                unc.handleStopSign()
+                endSign <- call_cnt
+                break Loop
+            }
+        }
+    }
 }
 
 func main() {
