@@ -142,6 +142,24 @@ Loop:
     }
 }
 
+//实际发送请求的逻辑
+//既然是golang，很自然的应该想到这个逻辑应该是一个异步的goroutine
+//但为了防止无限分配goroutine，所以结合worker_pool，实现goroutine总量控制
+func (unc *Unicorn) sendRequest() {
+    //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
+    //这个时机如果不正确，就无法起到控制goroutine的作用
+    unc.pool.Take() //主goroutine申请派生
+
+    //子goroutine
+    go func() {
+
+
+
+
+        unc.pool.Return() //子goroutine归还
+    }()
+}
+
 func main() {
     //logger := lib.Logger{}
     unicorn.Logger.Info("HAHA")
