@@ -24,7 +24,7 @@ type Unicorn struct {
     stopSign    chan byte                //停止信号接收通道
     status      unicorn.UncStatus        //当前状态
     resultChan  chan *unicorn.CallResult //保存调用结果的通道
-    plugin      unicorn.Plugin           //插件
+    plugin      unicorn.PluginIntfs      //插件
     pool        unicorn.WorkerPool       //协程池
     cancelSign  byte                     //取消发送后续结果的信号标记。
 
@@ -152,12 +152,20 @@ func (unc *Unicorn) sendRequest() {
 
     //子goroutine
     go func() {
+        raw_request := unc.plugin.GenReq()
 
-
+        var result *unicorn.CallResult
+        raw_response_chan := make(chan *unicorn.RawResponse, 1)
+        go unc.interact(&raw_request, raw_response_chan)
 
 
         unc.pool.Return() //子goroutine归还
     }()
+}
+
+//抽象的交互过程
+func (unc *Unicorn)interact(rawReq *unicorn.RawReqest, rawRespChan chan<- *unicorn.RawResponse) {
+
 }
 
 func main() {
