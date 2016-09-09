@@ -1,11 +1,11 @@
 package main
 
 import (
-    //"fmt"
     unicorn "github.com/hq-cml/unicorn-go/unicorn"
     "time"
     "errors"
     "math"
+    "fmt"
 )
 
 //Unicorn接口
@@ -159,6 +159,29 @@ func (unc *Unicorn) sendRequest() {
         //启动一个孙子goroutine
         go unc.interact(&raw_request, raw_response_chan)
 
+        select {
+        case raw_response := <-raw_response_chan:
+            if raw_response.Err != nil {
+                result = &unicorn.CallResult{
+                    Id     : raw_response.Id,
+                    Req    : raw_request,
+                    Resp   : raw_response,
+                    Code   : unicorn.RESULT_CODE_ERROR_CALL,
+                    Msg    : raw_response.Err.Error(),
+                    Elapse : raw_response.Elapse,
+                }
+            }else {
+                result = unc.plugin.CheckResp(raw_request, *raw_response)
+                result.Elapse = raw_response.Elapse
+            }
+        case <- time.After(unc.timeout):
+            result = &unicorn.CallResult{
+                Id     : raw_response.Id,
+                Req    : raw_request,
+                Code   : unicorn.RESULT_CODE_WARING_TIMEOUT,
+                Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
+            }
+        }
 
         unc.pool.Return() //子goroutine归还
     }()

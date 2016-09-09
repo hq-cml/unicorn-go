@@ -39,6 +39,15 @@ const (
     STOPPED                    //2
 )
 
+const (
+    RESULT_CODE_SUCCESS          = 0    //成功
+    RESULT_CODE_WARING_TIMEOUT   = 1001 //请求超时
+    RESULT_CODE_ERROR_CALL       = 2001 //错误调用
+    RESULT_CODE_ERROR_RESPONSE   = 2002 //错误的相应内容
+    RESULT_CODE_ERROR_CALEE      = 2003 //被调用方内部错误
+    RESULT_CODE_FATAL_CALL       = 3001 //调用过程中的致命错误
+)
+
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
     //构造请求
