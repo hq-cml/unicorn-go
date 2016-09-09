@@ -179,6 +179,10 @@ func (unc *Unicorn) sendRequest() {
 
     //子goroutine
     go func() {
+        //注册错误处理
+        defer unc.handleError()
+
+        //开始~
         raw_request := unc.plugin.GenReq()
 
         var result *unicorn.CallResult
