@@ -6,6 +6,7 @@ import (
     "errors"
     "math"
     "fmt"
+    "bytes"
 )
 
 //Unicorn接口
@@ -142,6 +143,32 @@ Loop:
     }
 }
 
+//兜底的错误处理，以defer的形式存在
+func (unc *Unicorn) handleError() {
+    if p := recover(); p != nil {
+        var buff bytes.Buffer
+        buff.WriteString("A Painic! (")
+        err, ok := interface{}(p).(error) //类型转换 + 断言
+        if ok { //断言成功
+            buff.WriteString("error :" + err.Error())
+        } else {
+            buff.WriteString("clue :" + fmt.Sprintf("%v", p))
+        }
+        buff.WriteString(")")
+        msg := buff.String()
+        unicorn.Logger.Info(msg)
+
+        //填充结果
+        result = &unicorn.CallResult{
+            Id     : -1,
+            Code   : unicorn.RESULT_CODE_FATAL_CALL,
+            Msg    : msg,
+        }
+        //结果存入通道
+        unc.saveResult(result)
+    }
+}
+
 //实际发送请求的逻辑
 //既然是golang，很自然的应该想到这个逻辑应该是一个异步的goroutine
 //但为了防止无限分配goroutine，所以结合worker_pool，实现goroutine总量控制
@@ -183,6 +210,7 @@ func (unc *Unicorn) sendRequest() {
             }
         }
 
+        unc.saveResult(result) //结果存入通道
         unc.pool.Return() //子goroutine归还
     }()
 }
