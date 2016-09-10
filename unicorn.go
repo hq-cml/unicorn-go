@@ -173,7 +173,67 @@ func (unc *Unicorn) handleError() {
 //实际发送请求的逻辑
 //既然是golang，很自然的应该想到这个逻辑应该是一个异步的goroutine
 //但为了防止无限分配goroutine，所以结合worker_pool，实现goroutine总量控制
-func (unc *Unicorn) sendRequest() {
+func (unc *Unicorn) asyncSendRequest() {
+    //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
+    //这个时机如果不正确，就无法起到控制goroutine的作用
+    unc.pool.Take() //主goroutine申请派生
+
+    //子goroutine
+    go func() {
+        //注册错误处理
+        defer unc.handleError()
+
+        //构造请求
+        raw_request := unc.plugin.GenReq()
+
+        //启动一个异步定时器
+        var timeout_flag = false
+        timer := time.AfterFunc(unc.timeout, func(){
+            timeout_flag = true
+            result := &unicorn.CallResult{
+                Id     : raw_response.Id,
+                Req    : raw_request,
+                Code   : unicorn.RESULT_CODE_WARING_TIMEOUT,
+                Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
+            }
+            unc.saveResult(result) //结果存入通道
+        })
+
+        //同步交互即可
+        raw_response := unc.interact(&raw_request)
+        if !timeout_flag {
+            timer.Stop() //立刻停止异步定时器，防止异步的方法执行，写入了一个超时结果
+            var result *unicorn.CallResult
+            if raw_response.Err != nil {
+                result = &unicorn.CallResult{
+                    Id     : raw_response.Id,
+                    Req    : raw_request,
+                    Resp   : raw_response,
+                    Code   : unicorn.RESULT_CODE_ERROR_CALL,
+                    Msg    : raw_response.Err.Error(),
+                    Elapse : raw_response.Elapse,
+                }
+            }else {
+                result = unc.plugin.CheckResp(raw_request, *raw_response)
+                result.Elapse = raw_response.Elapse
+            }
+            unc.saveResult(result) //结果存入通道
+        }
+        unc.pool.Return() //子goroutine归还
+    }()
+}
+
+//抽象的交互过程
+func (unc *Unicorn)interact(raw_reqest *unicorn.RawReqest) *unicorn.RawResponse{
+    return &interface{}
+}
+
+
+/*
+//注释的方案也是一种可行方案，但是有一个严重的问题就是会启动孙goroutine来实施交互
+//子协程则负责访问超时的判断。这样的结果就是导致最多会有worker_pool容量两倍的goroutine
+//被创建出来，所以不推荐这个方案
+func (unc *Unicorn) asyncSendRequest() {
     //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
     //这个时机如果不正确，就无法起到控制goroutine的作用
     unc.pool.Take() //主goroutine申请派生
@@ -224,6 +284,7 @@ func (unc *Unicorn) sendRequest() {
 func (unc *Unicorn)interact(rawReq *unicorn.RawReqest, rawRespChan chan<- *unicorn.RawResponse) {
 
 }
+*/
 
 func main() {
     //logger := lib.Logger{}
