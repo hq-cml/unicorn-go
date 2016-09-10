@@ -148,7 +148,8 @@ func (unc *Unicorn) handleError() {
     if p := recover(); p != nil {
         var buff bytes.Buffer
         buff.WriteString("A Painic! (")
-        err, ok := interface{}(p).(error) //类型转换 + 断言
+        //recover的返回值，静态类型是interface，动态类型未知，因此需要类型断言
+        err, ok := interface{}(p).(error)
         if ok { //断言成功
             buff.WriteString("error :" + err.Error())
         } else {
@@ -159,7 +160,7 @@ func (unc *Unicorn) handleError() {
         unicorn.Logger.Info(msg)
 
         //填充结果
-        result = &unicorn.CallResult{
+        result = &unicorn.CallResult {
             Id     : -1,
             Code   : unicorn.RESULT_CODE_FATAL_CALL,
             Msg    : msg,
