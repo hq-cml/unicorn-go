@@ -127,8 +127,8 @@ Loop:
         default:
         }
 
-        //实际发送请求
-        unc.sendRequest()
+        //异步发送请求
+        unc.asyncSendRequest()
 
         //阻塞等待节流阀throttle信号
         if unc.qps > 0 {
@@ -160,7 +160,7 @@ func (unc *Unicorn) handleError() {
         unicorn.Logger.Info(msg)
 
         //填充结果
-        result = &unicorn.CallResult {
+        result := &unicorn.CallResult {
             Id     : -1,
             Code   : unicorn.RESULT_CODE_FATAL_CALL,
             Msg    : msg,
@@ -228,6 +228,15 @@ func (unc *Unicorn)interact(raw_reqest *unicorn.RawReqest) *unicorn.RawResponse{
     return &interface{}
 }
 
+//保存结果:将结果存入通道
+func (unc *Unicorn) saveResult(result *unicorn.CallResult) bool {
+    if unc.status == unicorn.STARTED && unc.cancelSign == 0 {
+        unc.resultChan <- result
+        return true
+    }
+    unicorn.Logger.Info("Ignore result :%s", fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
+    return false
+}
 
 /*
 //注释的方案也是一种可行方案，但是有一个严重的问题就是会启动孙goroutine来实施交互
