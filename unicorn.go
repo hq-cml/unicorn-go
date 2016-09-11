@@ -167,7 +167,7 @@ func (unc * Unicorn) handleStopSign(call_cnt unint64) {
 //发送请求的主控制逻辑
 //通过节流阀throttle控制发送请求的强度
 //请求过程中不断检测stopSign，如果检测到，则将最终结果传入finalCnt
-func (unc* Unicorn) genRequest(throttle <-chan time.Time) {
+func (unc* Unicorn) beginRequest(throttle <-chan time.Time) {
     call_cnt := uint64(0)
 
 Loop:
@@ -252,8 +252,35 @@ func (unc *Unicorn) asyncSendRequest() {
             unc.saveResult(result) //结果存入通道
         })
 
-        //同步交互即可
-        raw_response := unc.interact(&raw_request)
+        //同步交互,调用plugin的Call方法获得response
+        var raw_response *unicorn.RawResponse
+        if raw_request == nil {
+            raw_response = &unicorn.RawResponse{
+                Id: -1,
+                Err: errors.New("Invalid raw request."),
+            }
+        } else {
+            start := time.Now().Nanosecond()
+            resp, err := unc.plugin.Call(raw_request.Req, unc.timeout)
+            end := time.Now().Nanosecond()
+            if err != nil {
+                errMsg := fmt.Sprintf("Sync call Error: %s", err)
+                raw_response = &unicorn.RawResponse{
+                    Id: raw_request.Id,
+                    Err: errors.New(errMsg),
+                    Elapse: time.Duration(end - start),
+                }
+            } else {
+                raw_response = &unicorn.RawResponse{
+                    Id : raw_request.Id,
+                    Resp: resp,
+                    Elapse: time.Duration(end - start),
+                }
+            }
+        }
+
+        //上面是一个同步的过程，所以到了此处，可能是已经超时了
+        //所以检测超时标志，只有未超时，才有必要继续
         if !timeout_flag {
             timer.Stop() //立刻停止异步定时器，防止异步的方法执行，写入了一个超时结果
             var result *unicorn.CallResult
