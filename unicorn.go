@@ -99,8 +99,42 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
 //*Unicorn实现Unicorn接口
 //启动
 func (unc *Unicorn)Start() {
+    unicorn.Logger.Info("Unicorn Start...")
 
+    //设定节流阀(利用断续器，实现的循环定时事件)
+    var throttle <-chan time.Time
+    if unc.qps > 0 {
+        interval := time.Duration(1e9 / unc.qps) //发送每个请求的间隔
+        throttle = time.Tick(interval)
+    }
+
+    //停止定时器，当探测持续到了指定时间，能够停止unicorn
+    //go func() { // ??为何要单独一个goroutinue
+        time.AfterFunc(unc.duration, func(){
+            unicorn.Logger.Info("Over duration. Stoping Unicorn...")
+            unc.stopSign <- 0
+        })
+    //}()
+
+    // 初始化完结信号通道
+    //unc.finalCnt = make(chan uint64, 1) //放在NewUnicorn里面可以吗
+
+    //启动状态
+    unc.status = unicorn.STARTED
+
+    //go func() { //这个地方为何要用goroutine？
+        unicorn.Logger.Info("genRequest ...")
+        //这是一个同步的过程
+        unc.genRequest(throttle)
+
+        //接收最终个数
+        call_count := <-unc.finalCnt
+        unc.status = unicorn.STOPPED
+
+        unicorn.Logger.Info(fmt.Sprintf("Stoped. (callCount=%d)", call_count))
+    //}()
 }
+
 //停止，返回值表示停止时已完成请求数和否成功停止
 func (unc *Unicorn) Stop() (uint64, bool){
     if unc.stopSign == nil {
@@ -114,6 +148,7 @@ func (unc *Unicorn) Stop() (uint64, bool){
     call_count := <-unc.finalCnt
     return call_count, true
 }
+
 //获得unicorn当前状态
 func (unc *Unicorn) Status() unicorn.UncStatus {
 
