@@ -28,8 +28,7 @@ type Unicorn struct {
     plugin      unicorn.PluginIntfs      //插件
     pool        unicorn.WorkerPool       //协程池
     cancelSign  byte                     //取消发送后续结果的信号标记。
-
-                                         //endSign     chan uint64          // 完结信号的传递通道，同时被用于传递调用执行计数。
+    finalCnt    chan uint64              //完结信号的传递通道，同时被用于传递调用执行计数。
                                          //callCount   uint64               // 调用执行计数。
 }
 
@@ -98,7 +97,27 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
 }
 
 //*Unicorn实现Unicorn接口
+//启动
+func (unc *Unicorn)Start() {
 
+}
+//停止，返回值表示停止时已完成请求数和否成功停止
+func (unc *Unicorn) Stop() (uint64, bool){
+    if unc.stopSign == nil {
+        return 0, false
+    }
+    if unc.status != unicorn.STARTED {
+        return 0, false
+    }
+    unc.status = unicorn.STOPPED
+    unc.stopSign <- 1
+    call_count := <-unc.finalCnt
+    return call_count, true
+}
+//获得unicorn当前状态
+func (unc *Unicorn) Status() unicorn.UncStatus {
+
+}
 
 //处理停止“信号”
 func (unc * Unicorn) handleStopSign() {
