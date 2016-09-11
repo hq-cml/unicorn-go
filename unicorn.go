@@ -151,7 +151,7 @@ func (unc *Unicorn) Stop() (uint64, bool){
 
 //获得unicorn当前状态
 func (unc *Unicorn) Status() unicorn.UncStatus {
-
+    return unc.status
 }
 
 //处理停止“信号”
