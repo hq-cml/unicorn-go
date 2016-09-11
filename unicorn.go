@@ -29,7 +29,6 @@ type Unicorn struct {
     pool        unicorn.WorkerPool       //协程池
     cancelSign  byte                     //取消发送后续结果的信号标记。
     finalCnt    chan uint64              //完结信号的传递通道，同时被用于传递调用执行计数。
-                                         //callCount   uint64               // 调用执行计数。
 }
 
 //初始化Unicorn，几件重要的事情
@@ -87,6 +86,7 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
         cancelSign : 0,
         status     : unicorn.ORIGINAL,
         resultChan : resultChan,
+        finalCnt   : make(chan uint64, 1),
     }
 
     //初始化
@@ -120,18 +120,19 @@ func (unc *Unicorn) Status() unicorn.UncStatus {
 }
 
 //处理停止“信号”
-func (unc * Unicorn) handleStopSign() {
+func (unc * Unicorn) handleStopSign(call_cnt unint64) {
     //信号标记变为1
     unc.cancelSign = 1
     unicorn.Logger.Info("handleStopSign. Closing result chan...")
     //关闭结果存储通道
     close(unc.resultChan)
+    unc.finalCnt <- call_cnt
 }
 
 //发送请求的主控制逻辑
 //通过节流阀throttle控制发送请求的强度
-//请求过程中不断检测stopSign，如果检测到，则将最终结果传入endSign
-func (unc* Unicorn) genRequest(throttle <-chan time.Time, endSign chan<- uint64) {
+//请求过程中不断检测stopSign，如果检测到，则将最终结果传入finalCnt
+func (unc* Unicorn) genRequest(throttle <-chan time.Time) {
     call_cnt := uint64(0)
 
 Loop:
@@ -140,8 +141,7 @@ Loop:
         //带default的select分支，是不会出现阻塞的
         select {
         case <- unc.stopSign:
-            unc.handleStopSign()
-            endSign <- call_cnt
+            unc.handleStopSign(call_cnt)
             break Loop
         default:
         }
@@ -154,8 +154,7 @@ Loop:
             select {
             case <-throttle: //空转一次，进入下次循环，发送请求
             case <-unc.stopSign:
-                unc.handleStopSign()
-                endSign <- call_cnt
+                unc.handleStopSign(call_cnt)
                 break Loop
             }
         }
