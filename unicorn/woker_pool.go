@@ -38,7 +38,7 @@ func (wp *WorkerPool) Active() bool {
 func (wp *WorkerPool) Total() uint32 {
     return wp.total
 }
-func (wp *WorkerPool) Remaider() uint32 {
+func (wp *WorkerPool) Remainder() uint32 {
     //每取走一个goroutine，会从通道中取走一个元素
     //搜易通道的长度就是剩余goroutine的数量
     return uint32(len(wp.pool))
@@ -56,7 +56,8 @@ func (wp *WorkerPool) init(total uint32) bool {
     //初始化通道，带缓冲的！
     ch := make(chan byte, total)
     //将通道填满，表示协程池是满的
-    for i:=0; i<total; i++ {
+    var i uint32
+    for i=0; i<total; i++ {
         ch <- 1
     }
     wp.pool = ch
