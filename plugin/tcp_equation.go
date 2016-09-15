@@ -12,7 +12,7 @@ import (
     "net"
     "bytes"
     "bufio"
-    "crypto/tls"
+    "strconv"
 )
 
 const (
@@ -27,7 +27,7 @@ type ServerEquationReq struct {
 
 type ServerEquationResp struct {
     Id      int64
-    Formula string   //公式
+    Formula string   //具体公式
     Result  int      //结果
     Err     error
 }
@@ -71,6 +71,57 @@ func (tep *TcpEquationPlugin) Call(req []byte, timeout time.Duration) ([]byte, e
     return read(conn, DELIM)
 }
 
+func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawReqest, raw_resp unicorn.RawResponse) *unicorn.CallResult {
+    var result unicorn.CallResult
+    result.Id = raw_resp.Id
+    result.Req = raw_req
+    result.Resp = raw_resp
+
+    //校验request
+    var sreq ServerEquationReq
+    err := json.Unmarshal(raw_req.Req, &sreq)
+    if err != nil {
+        result.Code = unicorn.RESULT_CODE_FATAL_CALL
+        result.Msg = fmt.Sprintf("Incorrectly formatted Req: %s!\n", string(raw_req.Req))
+        return &result
+    }
+
+    //校验response
+    var sresp ServerEquationResp
+    err = json.Unmarshal(raw_resp.Resp, &sresp)
+    if err != nil {
+        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(raw_resp.Req))
+        return &result
+    }
+
+    //校验id是否一致
+    if sresp.Id != sreq.Id {
+        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        result.Msg = fmt.Sprintf("Inconsistent raw id! (%d != %d)\n", sresp.Id ,sreq.Id)
+        return &result
+    }
+
+    //校验response的Err
+    if sresp.Err != nil {
+        result.Code = unicorn.RESULT_CODE_ERROR_CALEE
+        result.Msg = fmt.Sprintf("Abnormal server: %s!\n", sresp.Err)
+        return &result
+    }
+
+    //校验最终计算结果是否一致
+    if sresp.Result != op(sreq.Operands, sreq.Operator) {
+        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        result.Msg = fmt.Sprintf("Incorrect result: %s!\n",
+            genFormula(sreq.Operands, sreq.Operator, sresp.Result, false))
+        return &result
+    }
+
+    //一切都ok，则算是一次完整的请求
+    result.Code = unicorn.RESULT_CODE_SUCCESS
+    result.Msg = fmt.Sprintf("Success.(%s)", sresp.Formula)
+    return &result
+}
 
 //New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现
 func NewTcpEquationPlugin(addr string) unicorn.PluginIntfs {
@@ -107,4 +158,65 @@ func read(conn net.Conn, delim byte) ([]byte, error) {
         buffer.WriteByte(readByte)
     }
     return buffer.Bytes(), nil
+}
+
+/**************************配套服务端的部分逻辑********************/
+func op(operands []int, operator string) int {
+    var result int
+    switch {
+    case operator == "+":
+        for _, v := range operands {
+            if result == 0 {
+                result = v
+            } else {
+                result += v
+            }
+        }
+    case operator == "-":
+        for _, v := range operands {
+            if result == 0 {
+                result = v
+            } else {
+                result -= v
+            }
+        }
+    case operator == "*":
+        for _, v := range operands {
+            if result == 0 {
+                result = v
+            } else {
+                result *= v
+            }
+        }
+    case operator == "/":
+        for _, v := range operands {
+            if result == 0 {
+                result = v
+            } else {
+                result /= v
+            }
+        }
+    }
+    return result
+}
+
+func genFormula(operands []int, operator string, result int, equal bool) string {
+    var buff bytes.Buffer
+    n := len(operands)
+    for i := 0; i < n; i++ {
+        if i > 0 {
+            buff.WriteString(" ")
+            buff.WriteString(operator)
+            buff.WriteString(" ")
+        }
+
+        buff.WriteString(strconv.Itoa(operands[i]))
+    }
+    if equal {
+        buff.WriteString(" = ")
+    } else {
+        buff.WriteString(" != ")
+    }
+    buff.WriteString(strconv.Itoa(result))
+    return buff.String()
 }
