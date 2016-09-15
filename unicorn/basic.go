@@ -53,7 +53,7 @@ func ConvertCodePlain(code ResultCode) string {
     switch code {
     case RESULT_CODE_SUCCESS:
         code_plain = "Success"
-    case RESULT_CODE_WARNING_CALL_TIMEOUT:
+    case RESULT_CODE_WARING_TIMEOUT:
         code_plain = "Call Timeout Warning"
     case RESULT_CODE_ERROR_CALL:
         code_plain = "Call Error"

@@ -86,7 +86,7 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
         cancelSign : 0,
         status     : unicorn.ORIGINAL,
         resultChan : resultChan,
-        finalCnt   : make(chan uint64, 1),
+        finalCnt   : make(chan uint64, 2),
     }
 
     //初始化
@@ -165,6 +165,7 @@ func (unc * Unicorn) handleStopSign(call_cnt unint64) {
     //关闭结果存储通道
     close(unc.resultChan)
     unc.finalCnt <- call_cnt
+    //unc.finalCnt <- call_cnt //TODO 观察效果 ??
 }
 
 //发送请求的主控制逻辑
