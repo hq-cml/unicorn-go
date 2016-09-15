@@ -115,7 +115,7 @@ func TestStop(t *testing.T) {
         }
         count ++
         if count > 3 {
-            unc.Stop() //显式停止
+            unc.Stop() //显式地停止
         }
     }
 
