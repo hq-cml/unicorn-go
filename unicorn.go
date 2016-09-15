@@ -43,7 +43,7 @@ func (unc *Unicorn) init() error {
         conc = math.MaxInt32
     }
     unc.concurrency = uint32(conc)
-
+    unicorn.Logger.Info("Concurrency is " + fmt.Sprintf("%d" ,unc.concurrency))
     //实例化线程池
     wp, err := unicorn.NewWorkerPool(unc.concurrency)
     if err != nil {
@@ -106,6 +106,7 @@ func (unc *Unicorn)Start() {
     if unc.qps > 0 {
         interval := time.Duration(1e9 / unc.qps) //发送每个请求的间隔
         throttle = time.Tick(interval)
+        unicorn.Logger.Info("The interval of per request is " + fmt.Sprintf("%d" ,interval) + " Nanosecond")
     }
 
     //停止定时器，当探测持续到了指定时间，能够停止unicorn
@@ -135,7 +136,7 @@ func (unc *Unicorn)Start() {
         call_count := <-unc.finalCnt
         unc.status = unicorn.STOPPED
 
-        unicorn.Logger.Info(fmt.Sprintf("Stoped. (callCount=%d)", call_count))
+        unicorn.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", call_count))
     }()
 }
 
@@ -149,8 +150,11 @@ func (unc *Unicorn) Stop() (uint64, bool){
     }
     unc.status = unicorn.STOPPED
     unc.stopSign <- 1
+    //time.Sleep(1) //模拟让Start方法先接收
     call_count := <-unc.finalCnt
+    unicorn.Logger.Info(fmt.Sprintf("Stop ended. (callCount=%d)", call_count))
     return call_count, true
+    return 0, true
 }
 
 //获得unicorn当前状态
@@ -166,7 +170,10 @@ func (unc * Unicorn) handleStopSign(call_cnt uint64) {
     //关闭结果存储通道
     close(unc.resultChan)
     unc.finalCnt <- call_cnt
-    //unc.finalCnt <- call_cnt //TODO 观察效果 ??
+    //为什么需要两次写入通道呢
+    //因为Start方法和Stop方法，均存在从finalCnt接收的情况，所以如果两个同时发生，会造成其中一个阻塞
+    //所以，索性写入两次，保证Start和Stop均不会阻塞！
+    unc.finalCnt <- call_cnt
 }
 
 //发送请求的主控制逻辑

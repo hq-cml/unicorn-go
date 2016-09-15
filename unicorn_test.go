@@ -30,7 +30,7 @@ func TestStart(t *testing.T) {
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
-    timeout := 3*time.Millisecond
+    timeout := 10*time.Millisecond
     qps := uint32(1000)
     duration := 10 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
@@ -77,7 +77,7 @@ func TestStop(t *testing.T) {
     //初始化Server
     server := plugin.NewTcpServer()
     defer server.Close() //注册关闭
-    addr := "127.0.0.1:9528"
+    addr := "127.0.0.1:9527"
     t.Logf("Startup Tcp Server(%s)..\n", addr)
     err := server.Listen(addr)
     if err != nil {
@@ -91,7 +91,7 @@ func TestStop(t *testing.T) {
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
     timeout := 3*time.Millisecond
-    qps := uint32(1)
+    qps := uint32(10)
     duration := 10 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
     unc, err := NewUnicorn(plugin_tep, timeout, qps, duration, result_chan)
