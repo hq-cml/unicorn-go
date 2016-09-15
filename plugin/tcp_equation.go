@@ -9,6 +9,9 @@ import (
     "github.com/hq-cml/unicorn-go/unicorn"
     "time"
     "encoding/json"
+    "net"
+    "bytes"
+    "bufio"
 )
 
 const (
@@ -54,9 +57,42 @@ func (tep *TcpEquationPlugin) GenRequest() unicorn.RawReqest {
     return raw_reqest
 }
 
+
+
+
 //New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现
 func NewTcpEquationPlugin(addr string) unicorn.PluginIntfs {
     return &TcpEquationPlugin{
         addr: addr,
     }
+}
+
+//TODO 这两个函数应该挪到框架中去
+func write(conn net.Conn, content []byte, delim byte) (int, error) {
+    writer := bufio.NewWriter(conn)
+    n, err := writer.Write(content)
+    if err == nil {
+        writer.WriteByte(delim)
+    }
+    if err == nil {
+        err = writer.Flush()
+    }
+    return n, err
+}
+
+func read(conn net.Conn, delim byte) ([]byte, error) {
+    readBytes := make([]byte, 1)
+    var buffer bytes.Buffer
+    for {
+        _, err := conn.Read(readBytes)
+        if err != nil {
+            return nil, err
+        }
+        readByte := readBytes[0]
+        if readByte == delim {
+            break
+        }
+        buffer.WriteByte(readByte)
+    }
+    return buffer.Bytes(), nil
 }
