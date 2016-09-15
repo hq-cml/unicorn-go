@@ -42,7 +42,7 @@ type TcpEquationPlugin struct {
 }
 
 //*TcpEquationPlugin实现PluginIntfs接口
-func (tep *TcpEquationPlugin) GenRequest() unicorn.RawReqest {
+func (tep *TcpEquationPlugin) GenRequest() unicorn.RawRequest {
     id := time.Now().UnixNano() //用纳秒就能保证唯一性了吗？
     req := ServerEquationReq{
         Id: id,
@@ -59,7 +59,7 @@ func (tep *TcpEquationPlugin) GenRequest() unicorn.RawReqest {
     if err != nil {
         panic(err) //框架会接住这个panic，defer unc.handleError()
     }
-    raw_reqest := unicorn.RawReqest{Id: id, Req: bytes}
+    raw_reqest := unicorn.RawRequest{Id: id, Req: bytes}
     return raw_reqest
 }
 
@@ -76,7 +76,7 @@ func (tep *TcpEquationPlugin) Call(req []byte, timeout time.Duration) ([]byte, e
     return read(conn, DELIM)
 }
 
-func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawReqest, raw_resp unicorn.RawResponse) *unicorn.CallResult {
+func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, raw_resp unicorn.RawResponse) *unicorn.CallResult {
     var result unicorn.CallResult
     result.Id = raw_resp.Id
     result.Req = raw_req

@@ -6,7 +6,7 @@ package unicorn
 import "time"
 
 //原生request的结构。本质上就是字节流
-type RawReqest struct {
+type RawRequest struct {
     Id  int64   //请求Id，这个request应该一一对应
     Req []byte  //字节流
 }
@@ -23,12 +23,12 @@ type ResultCode int
 
 //调用结果的结构。
 type CallResult struct {
-    Id      int64         //ID
-    Req     RawReqest     //原生请求
-    Resp    RawResponse   //原生响应
-    Code    ResultCode    //响应码
-    Msg     string        //细节信息
-    Elapse  time.Duration //耗时
+    Id     int64         //ID
+    Req    RawRequest    //原生请求
+    Resp   RawResponse   //原生响应
+    Code   ResultCode    //响应码
+    Msg    string        //细节信息
+    Elapse time.Duration //耗时
 }
 
 //unicorn的当前状态
@@ -71,9 +71,9 @@ func ConvertCodePlain(code ResultCode) string {
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
     //构造请求
-    GenRequest() RawReqest
+    GenRequest() RawRequest
     //调用
     Call(req []byte, timeout time.Duration)([]byte, error)
     //检查响应
-    CheckResponse(rawReq RawReqest, rawResp RawResponse) *CallResult
+    CheckResponse(rawReq RawRequest, rawResp RawResponse) *CallResult
 }

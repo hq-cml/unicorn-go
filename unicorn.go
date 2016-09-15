@@ -26,7 +26,7 @@ type Unicorn struct {
     status      unicorn.UncStatus        //当前状态
     resultChan  chan *unicorn.CallResult //保存调用结果的通道
     plugin      unicorn.PluginIntfs      //插件
-    pool        unicorn.WorkerPool       //协程池
+    pool        unicorn.WorkerPoolIntfs  //协程池
     cancelSign  byte                     //取消发送后续结果的信号标记。
     finalCnt    chan uint64              //完结信号的传递通道，同时被用于传递调用执行计数。
 }
@@ -38,7 +38,7 @@ func (unc *Unicorn) init() error {
     unicorn.Logger.Info("Begin Init Unicorn")
 
     //计算并发量concurrency ≈ 规定响应超时时间 / 发送间隔时间
-    var conc int64 = int(unc.timeout) / int64(1e9/ unc.qps) + 1
+    var conc int64 = int64(unc.timeout) / int64(1e9/ unc.qps) + 1
     if conc > math.MaxInt32 {
         conc = math.MaxInt32
     }
@@ -66,10 +66,10 @@ func NewUnicorn(plugin unicorn.PluginIntfs, timeout time.Duration, qps uint32, d
     if timeout == 0 {
         return nil, errors.New("Nil timeout")
     }
-    if qps == nil {
+    if qps == 0 {
         return nil, errors.New("Nil qps")
     }
-    if duration == nil {
+    if duration == 0 {
         return nil, errors.New("Nil duration")
     }
     if resultChan == nil {
@@ -258,31 +258,7 @@ func (unc *Unicorn) asyncSendRequest() {
         })
 
         //同步交互,调用plugin的Call方法获得response
-        var raw_response *unicorn.RawResponse
-        if raw_request == nil {
-            raw_response = &unicorn.RawResponse{
-                Id: -1,
-                Err: errors.New("Invalid raw request."),
-            }
-        } else {
-            start := time.Now().Nanosecond()
-            resp, err := unc.plugin.Call(raw_request.Req, unc.timeout)
-            end := time.Now().Nanosecond()
-            if err != nil {
-                errMsg := fmt.Sprintf("Sync call Error: %s", err)
-                raw_response = &unicorn.RawResponse{
-                    Id: raw_request.Id,
-                    Err: errors.New(errMsg),
-                    Elapse: time.Duration(end - start),
-                }
-            } else {
-                raw_response = &unicorn.RawResponse{
-                    Id : raw_request.Id,
-                    Resp: resp,
-                    Elapse: time.Duration(end - start),
-                }
-            }
-        }
+        raw_response := unc.interact(&raw_request)
 
         //上面是一个同步的过程，所以到了此处，可能是已经超时了
         //所以检测超时标志，只有未超时，才有必要继续
@@ -293,7 +269,6 @@ func (unc *Unicorn) asyncSendRequest() {
                 result = &unicorn.CallResult{
                     Id     : raw_response.Id,
                     Req    : raw_request,
-                    Resp   : raw_response,
                     Code   : unicorn.RESULT_CODE_ERROR_CALL,
                     Msg    : raw_response.Err.Error(),
                     Elapse : raw_response.Elapse,
@@ -308,13 +283,43 @@ func (unc *Unicorn) asyncSendRequest() {
     }()
 }
 
+//TODO 这个函数写入程序中去。。。
+func (unc *Unicorn)interact(raw_request *unicorn.RawRequest) *unicorn.RawResponse{
+    var raw_response *unicorn.RawResponse
+    if raw_request == nil {
+        raw_response = &unicorn.RawResponse{
+            Id: -1,
+            Err: errors.New("Invalid raw request."),
+        }
+    } else {
+        start := time.Now().Nanosecond()
+        resp, err := unc.plugin.Call(raw_request.Req, unc.timeout)
+        end := time.Now().Nanosecond()
+        if err != nil {
+            errMsg := fmt.Sprintf("Sync call Error: %s", err)
+            raw_response = &unicorn.RawResponse{
+                Id: raw_request.Id,
+                Err: errors.New(errMsg),
+                Elapse: time.Duration(end - start),
+            }
+        } else {
+            raw_response = &unicorn.RawResponse{
+                Id : raw_request.Id,
+                Resp: resp,
+                Elapse: time.Duration(end - start),
+            }
+        }
+    }
+    return raw_response
+}
+
 //保存结果:将结果存入通道
 func (unc *Unicorn) saveResult(result *unicorn.CallResult) bool {
     if unc.status == unicorn.STARTED && unc.cancelSign == 0 {
         unc.resultChan <- result
         return true
     }
-    unicorn.Logger.Info("Ignore result :%s", fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
+    unicorn.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
     return false
 }
 
