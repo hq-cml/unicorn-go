@@ -6,9 +6,10 @@ import (
     "github.com/hq-cml/unicorn-go/unicorn"
     "github.com/hq-cml/unicorn-go/plugin"
     "time"
+    "fmt"
 )
 
-var printDetail = false
+var printDetail = true
 
 func TestStart(t *testing.T) {
     runtime.GOMAXPROCS(runtime.NumCPU())
@@ -30,7 +31,7 @@ func TestStart(t *testing.T) {
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
     timeout := 3*time.Millisecond
-    qps := uint32(1)
+    qps := uint32(1000)
     duration := 10 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
     unc, err := NewUnicorn(plugin_tep, timeout, qps, duration, result_chan)
@@ -47,8 +48,9 @@ func TestStart(t *testing.T) {
     count_map := make(map[unicorn.ResultCode]int) //将结果按Code分类收集
     for ret := range result_chan {
         count_map[ret.Code] ++
-        if printDetail {
-            t.Logf("Result: Id=%d, Code=%d, Msg=%s, Elapse=%v.\n", ret.Id, ret.Code, ret.Msg, ret.Elapse)
+        if printDetail && ret.Code != unicorn.RESULT_CODE_SUCCESS{
+            time := fmt.Sprintf(time.Now().Format("15:04:05"))
+            t.Logf("[%s] Result: Id=%d, Code=%d, Msg=%s, Elapse=%v.\n", time, ret.Id, ret.Code, ret.Msg, ret.Elapse)
         }
     }
 

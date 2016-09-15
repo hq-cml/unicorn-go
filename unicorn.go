@@ -112,7 +112,7 @@ func (unc *Unicorn)Start() {
     //TODO 试试看效果
     //go func() { // ??为何要单独一个goroutinue
         time.AfterFunc(unc.duration, func(){
-            unicorn.Logger.Info("Over duration. Stoping Unicorn...")
+            unicorn.Logger.Info("Time's up. Stoping Unicorn...")
             unc.stopSign <- 0
         })
     //}()
