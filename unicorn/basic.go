@@ -48,6 +48,26 @@ const (
     RESULT_CODE_FATAL_CALL       = 3001 //调用过程中的致命错误
 )
 
+func ConvertCodePlain(code ResultCode) string {
+    var code_plain string
+    switch code {
+    case RESULT_CODE_SUCCESS:
+        code_plain = "Success"
+    case RESULT_CODE_WARNING_CALL_TIMEOUT:
+        code_plain = "Call Timeout Warning"
+    case RESULT_CODE_ERROR_CALL:
+        code_plain = "Call Error"
+    case RESULT_CODE_ERROR_RESPONSE:
+        code_plain = "Response Error"
+    case RESULT_CODE_ERROR_CALEE:
+        code_plain = "Callee Error"
+    case RESULT_CODE_FATAL_CALL:
+        code_plain = "Call Fatal Error"
+    default:
+        code_plain = "Unknown result code"
+    }
+    return code_plain
+}
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
     //构造请求

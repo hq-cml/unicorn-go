@@ -5,7 +5,10 @@ import (
     "runtime"
     "github.com/hq-cml/unicorn-go/unicorn"
     "github.com/hq-cml/unicorn-go/plugin"
+    "time"
 )
+
+var printDetail = false
 
 func TestStart(t *testing.T) {
     runtime.GOMAXPROCS(runtime.NumCPU())
@@ -20,4 +23,46 @@ func TestStart(t *testing.T) {
         t.Fatalf("TCP Server startup failing! (addr=%s)!\n", addr)
         t.FailNow() //结束！
     }
+
+    //初始化Plugin
+    plugin_tep = plugin.NewTcpEquationPlugin(addr)
+
+    //初始化Unicorn
+    result_chan := make(chan *unicorn.CallResult, 50)
+    timeout := 3*time.Millisecond
+    qps := unit32(1)
+    duration := 10 * time.Second
+    t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
+    unc, err := NewUnicorn(plugin_tep, timeout, qps, duration, result_chan)
+    if err != nil {
+        t.Fatalf("Unicorn initialization failing: %s.\n",  err)
+        t.FailNow()
+    }
+
+    //开始干活儿! Start可以立刻返回的，进去看就知道~
+    unc.Start()
+
+    //主流程在外面等待着结果接收，循环阻塞接收结果~
+    count_map := make(map[unicorn.ResultCode]int) //将结果按Code分类收集
+    for ret := range result_chan {
+        count_map[ret.Code] ++
+        if printDetail {
+            t.Logf("Result: Id=%d, Code=%d, Msg=%s, Elapse=%v.\n", ret.Id, ret.Code, ret.Msg, ret.Elapse)
+        }
+    }
+
+    //打印汇总结果
+    var total int
+    t.Log("Code Count:")
+    for k, v := range count_map {
+        code_plain := unicorn.ConvertCodePlain(k)
+        t.Logf("  Code plain: %s (%d), Count: %d.\n", code_plain, k, v)
+        total += v
+    }
+
+    //打印最终结果
+    t.Logf("Total load: %d.\n", total)
+    success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
+    tps := float64(success_cnt) / float64(duration/time.Second)
+    t.Logf("Qps: %d; Tps(Treatments per second): %f.\n", qps, tps)
 }
