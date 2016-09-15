@@ -1,7 +1,7 @@
 package main
 
 import (
-    unicorn "github.com/hq-cml/unicorn-go/unicorn"
+    "github.com/hq-cml/unicorn-go/unicorn"
     "time"
     "errors"
     "math"
