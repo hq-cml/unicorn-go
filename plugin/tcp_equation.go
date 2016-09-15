@@ -12,6 +12,7 @@ import (
     "net"
     "bytes"
     "bufio"
+    "crypto/tls"
 )
 
 const (
@@ -31,7 +32,7 @@ type ServerEquationResp struct {
     Err     error
 }
 
-type TcpEquationPlugin strct {
+type TcpEquationPlugin struct {
     addr string
 }
 
@@ -57,7 +58,18 @@ func (tep *TcpEquationPlugin) GenRequest() unicorn.RawReqest {
     return raw_reqest
 }
 
+func (tep *TcpEquationPlugin) Call(req []byte, timeout time.Duration) ([]byte, error) {
+    conn, err := net.DialTimeout("tcp", tep.addr, timeout)
+    if err != nil {
+        return nil, err
+    }
 
+    _, err = write(conn, req, DELIM)
+    if err != nil {
+        return nil, err
+    }
+    return read(conn, DELIM)
+}
 
 
 //New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现
