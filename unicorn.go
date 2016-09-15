@@ -122,17 +122,20 @@ func (unc *Unicorn)Start() {
     //启动状态
     unc.status = unicorn.STARTED
 
-    //go func() { //这个地方为何要用goroutine??
+    //这个地方为何要用goroutine呢
+    //因为Start是主流程，不应该有被阻塞住的可能性，需要能够被执行完毕进而继续外层和Start平行的逻辑
+    //仔细看beginRequest是存在被阻塞住的可能性的，即协程池的Take操作，所以此处应该启动一个单独goroutine
+    go func() {
         unicorn.Logger.Info("genRequest ...")
         //这是一个同步的过程
-        unc.genRequest(throttle)
+        unc.beginRequest(throttle)
 
         //接收最终个数
         call_count := <-unc.finalCnt
         unc.status = unicorn.STOPPED
 
         unicorn.Logger.Info(fmt.Sprintf("Stoped. (callCount=%d)", call_count))
-    //}()
+    }()
 }
 
 //停止，返回值表示停止时已完成请求数和否成功停止
@@ -181,7 +184,7 @@ Loop:
         default:
         }
 
-        //异步发送请求
+        //异步发送请求（此处是有可能被阻塞住的--协程池的Take操作）
         unc.asyncSendRequest()
 
         //阻塞等待节流阀throttle信号
