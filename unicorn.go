@@ -122,7 +122,7 @@ func (unc *Unicorn)Start() {
     //启动状态
     unc.status = unicorn.STARTED
 
-    //go func() { //这个地方为何要用goroutine？
+    //go func() { //这个地方为何要用goroutine??
         unicorn.Logger.Info("genRequest ...")
         //这是一个同步的过程
         unc.genRequest(throttle)
