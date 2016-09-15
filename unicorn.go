@@ -109,6 +109,7 @@ func (unc *Unicorn)Start() {
     }
 
     //停止定时器，当探测持续到了指定时间，能够停止unicorn
+    //TODO 试试看效果
     //go func() { // ??为何要单独一个goroutinue
         time.AfterFunc(unc.duration, func(){
             unicorn.Logger.Info("Over duration. Stoping Unicorn...")
@@ -158,7 +159,7 @@ func (unc *Unicorn) Status() unicorn.UncStatus {
 }
 
 //处理停止“信号”
-func (unc * Unicorn) handleStopSign(call_cnt unint64) {
+func (unc * Unicorn) handleStopSign(call_cnt uint64) {
     //信号标记变为1
     unc.cancelSign = 1
     unicorn.Logger.Info("handleStopSign. Closing result chan...")
@@ -241,14 +242,14 @@ func (unc *Unicorn) asyncSendRequest() {
         defer unc.handleError()
 
         //构造请求
-        raw_request := unc.plugin.GenReq()
+        raw_request := unc.plugin.GenRequest()
 
         //启动一个异步定时器
         var timeout_flag = false
         timer := time.AfterFunc(unc.timeout, func(){
             timeout_flag = true
             result := &unicorn.CallResult{
-                Id     : raw_response.Id,
+                Id     : raw_request.Id,
                 Req    : raw_request,
                 Code   : unicorn.RESULT_CODE_WARING_TIMEOUT,
                 Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
@@ -298,18 +299,13 @@ func (unc *Unicorn) asyncSendRequest() {
                     Elapse : raw_response.Elapse,
                 }
             }else {
-                result = unc.plugin.CheckResp(raw_request, *raw_response)
+                result = unc.plugin.CheckResponse(raw_request, *raw_response)
                 result.Elapse = raw_response.Elapse
             }
             unc.saveResult(result) //结果存入通道
         }
         unc.pool.Return() //子goroutine归还
     }()
-}
-
-//抽象的交互过程
-func (unc *Unicorn)interact(raw_reqest *unicorn.RawReqest) *unicorn.RawResponse{
-    return &interface{}
 }
 
 //保存结果:将结果存入通道

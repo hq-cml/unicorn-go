@@ -2,6 +2,7 @@ package plugin
 /*
  * plugin
  * Tcp版本插件
+ * 发送一个算式给服务端，服务端计算之后将结果返回
  */
 
 import (
@@ -16,6 +17,7 @@ import (
     "errors"
     "sync"
     "runtime"
+    "math/rand"
 )
 
 const (
@@ -94,7 +96,7 @@ func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawReqest, raw_resp 
     err = json.Unmarshal(raw_resp.Resp, &sresp)
     if err != nil {
         result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(raw_resp.Req))
+        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(raw_resp.Resp))
         return &result
     }
 
@@ -226,12 +228,12 @@ func genFormula(operands []int, operator string, result int, equal bool) string 
 
 func reqHandler(conn net.Conn) {
     var errMsg string
-    var sresp ServerResp
+    var sresp ServerEquationResp
     req, err := read(conn, DELIM)
     if err != nil {
         errMsg = fmt.Sprintf("Server: Req Read Error: %s", err)
     } else {
-        var sreq ServerReq
+        var sreq ServerEquationReq
         err := json.Unmarshal(req, &sreq)
         if err != nil {
             errMsg = fmt.Sprintf("Server: Req Unmarshal Error: %s", err)
