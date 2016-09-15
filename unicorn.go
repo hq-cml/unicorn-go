@@ -110,7 +110,7 @@ func (unc *Unicorn)Start() {
     }
 
     //停止定时器，当探测持续到了指定时间，能够停止unicorn
-    //TODO 试试看效果
+    //实际测试，这个地方是否启动一个goroutine，效果是一样的
     //go func() { // ??为何要单独一个goroutinue
         time.AfterFunc(unc.duration, func(){
             unicorn.Logger.Info("Time's up. Stoping Unicorn...")
