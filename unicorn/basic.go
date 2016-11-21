@@ -2,8 +2,32 @@ package unicorn
 /*
  * 基础类型定义
  */
+import (
+    "time"
+    wp "github.com/hq-cml/unicorn-go/worker-pool"
+)
 
-import "time"
+//Unicorn接口
+type UnicornIntfs interface {
+    Start()                //启动unicorn
+    Stop() (uint64, bool)  //第一个返回值表示停止时已完成请求数，第二个返回值表示是否成功停止
+    Status() UncStatus     //获得unicorn当前状态
+}
+
+//Unicorn接口的实现类型
+type Unicorn struct {
+    qps           uint32              //规定每秒的请求量
+    timeout       time.Duration       //规定的每个请求最大延迟
+    duration      time.Duration       //持续探测访问持续时间
+    concurrency   uint32              //并发量，这个值是根据timeout和qps算出来的
+    sigChan       chan byte           //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
+    status        UncStatus           //当前状态
+    resultChan    chan *CallResult    //保存调用结果的通道
+    plugin        PluginIntfs         //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
+    pool          wp.WorkerPoolIntfs  //goroutine协程池，控制并发量
+    cancelSign    byte                //取消发送后续结果的信号标记。
+    finalCnt      chan uint64         //完结信号的传递通道，同时被用于传递调用执行计数。
+}
 
 //原生request的结构。本质上就是字节流
 type RawRequest struct {
@@ -19,7 +43,16 @@ type RawResponse struct {
     Elapse  time.Duration  //请求耗时
 }
 
+//结果码
 type ResultCode int
+const (
+    RESULT_CODE_SUCCESS         ResultCode = 0    //成功
+    RESULT_CODE_WARING_TIMEOUT  ResultCode = 1001 //请求超时
+    RESULT_CODE_ERROR_CALL      ResultCode = 2001 //错误调用
+    RESULT_CODE_ERROR_RESPONSE  ResultCode = 2002 //错误的相应内容
+    RESULT_CODE_ERROR_CALEE     ResultCode = 2003 //被调用方内部错误
+    RESULT_CODE_FATAL_CALL      ResultCode = 3001 //调用过程中的致命错误
+)
 
 //调用结果的结构。
 type CallResult struct {
@@ -28,7 +61,7 @@ type CallResult struct {
     Resp   RawResponse   //原生响应
     Code   ResultCode    //响应码
     Msg    string        //细节信息
-    Elapse time.Duration //耗时
+    Elapse time.Duration //耗时，这个貌似和RawResponse里面的Elapse重复。。
 }
 
 //unicorn的当前状态
@@ -39,35 +72,6 @@ const (
     STOPPED                    //2
 )
 
-const (
-    RESULT_CODE_SUCCESS          = 0    //成功
-    RESULT_CODE_WARING_TIMEOUT   = 1001 //请求超时
-    RESULT_CODE_ERROR_CALL       = 2001 //错误调用
-    RESULT_CODE_ERROR_RESPONSE   = 2002 //错误的相应内容
-    RESULT_CODE_ERROR_CALEE      = 2003 //被调用方内部错误
-    RESULT_CODE_FATAL_CALL       = 3001 //调用过程中的致命错误
-)
-
-func ConvertCodePlain(code ResultCode) string {
-    var code_plain string
-    switch code {
-    case RESULT_CODE_SUCCESS:
-        code_plain = "Success"
-    case RESULT_CODE_WARING_TIMEOUT:
-        code_plain = "Call Timeout Warning"
-    case RESULT_CODE_ERROR_CALL:
-        code_plain = "Call Error"
-    case RESULT_CODE_ERROR_RESPONSE:
-        code_plain = "Response Error"
-    case RESULT_CODE_ERROR_CALEE:
-        code_plain = "Callee Error"
-    case RESULT_CODE_FATAL_CALL:
-        code_plain = "Call Fatal Error"
-    default:
-        code_plain = "Unknown result code"
-    }
-    return code_plain
-}
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
     //构造请求

@@ -1,13 +1,13 @@
-package unicorn
+package worker_pool
+/*
+ * goroutine协程池实现
+ * 利用缓冲通道作为载体，实现一个goroutine池子，利用worker-pool可以控制goroutine最大数量
+ */
 
 import (
     "fmt"
     "errors"
 )
-/*
- * goroutine协程池实现
- * 利用缓冲通道，实现一个goroutine池子
- */
 
 //goroutine协程池接口
 type WorkerPoolIntfs interface {
