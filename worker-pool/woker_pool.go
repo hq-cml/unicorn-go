@@ -2,6 +2,10 @@ package worker_pool
 /*
  * goroutine协程池实现
  * 利用缓冲通道作为载体，实现一个goroutine池子，利用worker-pool可以控制goroutine最大数量
+ *
+ * 实现思路：
+ * 票池，类似于POSIX的信号量。初始池子是满的，每生产一个goroutine，则向票池中取一张票;
+ * 每消亡一个goroutine，就归还一张票。当票池为空的时候，所有生产goroutine的行为将阻塞
  */
 
 import (
@@ -40,22 +44,22 @@ func (wp *WorkerPool) Total() uint32 {
 }
 func (wp *WorkerPool) Remainder() uint32 {
     //每取走一个goroutine，会从通道中取走一个元素
-    //搜易通道的长度就是剩余goroutine的数量
+    //所以通道的长度就是剩余goroutine的数量
     return uint32(len(wp.pool))
 }
 
-//初始化workerPool
-func (wp *WorkerPool) init(total uint32) bool {
-    if wp.active {
-        return false
-    }
+//实例化协程池，New开头的惯例
+//返回值是WorkerPoolIntfs的实现，所以是*workerPool
+func NewWorkerPool(total uint32) (WorkerPoolIntfs, error) {
     if total == 0 {
-        return false
+        msg := fmt.Sprintf("Worker Pool init Failed. total=%d", total)
+        return nil, errors.New(msg)
     }
 
+    wp := WorkerPool{}
     //初始化通道，带缓冲的！
     ch := make(chan byte, total)
-    //将通道填满，表示协程池是满的
+    //将通道填满，表示票池是满的，即没有goroutine生产
     var i uint32
     for i=0; i<total; i++ {
         ch <- 1
@@ -63,17 +67,6 @@ func (wp *WorkerPool) init(total uint32) bool {
     wp.pool = ch
     wp.total = total
     wp.active = true
-    return true
-}
-
-//实例化协程池，New开头的惯例
-//返回值是WorkerPoolIntfs的实现，所以是*workerPool
-func NewWorkerPool(total uint32) (WorkerPoolIntfs, error) {
-    wp := WorkerPool{}
-    if ok := wp.init(total); !ok {
-        msg := fmt.Sprintf("Worker Pool init Failed. total=%d", total)
-        return nil, errors.New(msg)
-    }
 
     return &wp, nil
 }
