@@ -16,17 +16,17 @@ type UnicornIntfs interface {
 
 //Unicorn接口的实现类型
 type Unicorn struct {
-    qps           uint32              //规定每秒的请求量
-    timeout       time.Duration       //规定的每个请求最大延迟
-    duration      time.Duration       //持续探测访问持续时间
-    concurrency   uint32              //并发量，这个值是根据timeout和qps算出来的
-    sigChan       chan byte           //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
-    status        UncStatus           //当前状态
-    resultChan    chan *CallResult    //保存调用结果的通道
-    plugin        PluginIntfs         //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
-    pool          wp.WorkerPoolIntfs  //goroutine协程池，控制并发量
-    cancelSign    byte                //取消发送后续结果的信号标记。
-    finalCnt      chan uint64         //完结信号的传递通道，同时被用于传递调用执行计数。
+    qps           uint32             //规定每秒的请求量
+    timeout       time.Duration      //规定的每个请求最大延迟
+    duration      time.Duration      //持续探测访问持续时间
+    concurrency   uint32             //并发量，这个值是根据timeout和qps算出来的
+    sigChan       chan byte          //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
+    status        UncStatus          //当前状态
+    resultChan    chan *CallResult   //保存调用结果的通道
+    plugin        PluginIntfs        //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
+    pool          wp.WorkerPoolIntfs //goroutine协程池，控制并发量
+    stopFlag      byte               //取消发送后续结果的信号标记。
+    finalCnt      chan uint64        //完结信号的传递通道，同时被用于传递调用执行计数。
 }
 
 //原生request的结构。本质上就是字节流
