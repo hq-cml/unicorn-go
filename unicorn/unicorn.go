@@ -66,10 +66,11 @@ func NewUnicorn(
         duration   : duration,
         concurrency   : c,
         sigChan    : make(chan byte, 1),
-        stopFlag : 0,
+        stopFlag : false,
         status     : ORIGINAL,
         resultChan : resultChan,
-        finalCnt   : make(chan uint64, 2),
+        //finalCnt : make(chan uint64, 2),
+        finalCnt   : 0,
         pool: pool,
     }
 
@@ -94,7 +95,7 @@ func (unc *Unicorn)Start() {
     //go func() { // ??为何要单独一个goroutinue
     time.AfterFunc(unc.duration, func(){
         log.Logger.Info("Time's up. Stoping Unicorn...")
-        unc.sigChan <- 0
+        unc.sigChan <- 1
     })
     //}()
 
@@ -112,10 +113,10 @@ func (unc *Unicorn)Start() {
         unc.doRequest(throttle)
 
         //接收最终个数
-        call_count := <-unc.finalCnt
+        //call_count := <-unc.finalCnt
         unc.status = STOPPED
 
-        log.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", call_count))
+        log.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", unc.finalCnt))
     }()
 }
 
@@ -128,11 +129,11 @@ func (unc *Unicorn) Stop() (uint64, bool){
         return 0, false
     }
     unc.status = STOPPED
-    unc.sigChan <- 1
-    //time.Sleep(1) //模拟让Start方法先接收
-    call_count := <-unc.finalCnt
-    log.Logger.Info(fmt.Sprintf("Stop ended. (callCount=%d)", call_count))
-    return call_count, true
+    unc.sigChan <- 1      //放入标记
+
+    //call_count := <-unc.finalCnt
+    //log.Logger.Info(fmt.Sprintf("Stop ended. (callCount=%d)", call_count))
+    return unc.finalCnt, true
 }
 
 //获得unicorn当前状态
@@ -140,18 +141,20 @@ func (unc *Unicorn) Status() UncStatus {
     return unc.status
 }
 
+/******************** 其他核心函数 *******************/
 //处理停止“信号”
 func (unc * Unicorn) handleStopSign(call_cnt uint64) {
     //信号标记变为1
-    unc.stopFlag = 1
+    unc.stopFlag = true
     log.Logger.Info("handleStopSign. Closing result chan...")
     //关闭结果存储通道
     close(unc.resultChan)
-    unc.finalCnt <- call_cnt
-    //为什么需要两次写入通道呢
-    //因为Start方法和Stop方法，均存在从finalCnt接收的情况，所以如果两个同时发生，会造成其中一个阻塞
-    //所以，索性写入两次，保证Start和Stop均不会阻塞！
-    unc.finalCnt <- call_cnt
+
+    //unc.finalCnt <- call_cnt
+    ////为什么需要两次写入通道呢
+    ////因为Start方法和Stop方法，均存在从finalCnt接收的情况，所以如果两个同时发生，会造成其中一个阻塞
+    ////所以，索性写入两次，保证Start和Stop均不会阻塞！
+    //unc.finalCnt <- call_cnt
 }
 
 /*
@@ -320,11 +323,11 @@ func (unc *Unicorn) asyncSendRequest() {
 }
 */
 
-//TODO 这个函数写入程序中去。。。
-func (unc *Unicorn)interact(raw_request *unicorn.RawRequest) *unicorn.RawResponse{
-    var raw_response *unicorn.RawResponse
+//实际的交互逻辑，调用了plugin.call函数
+func (unc *Unicorn)interact(raw_request *RawRequest) *RawResponse{
+    var raw_response *RawResponse
     if raw_request == nil {
-        raw_response = &unicorn.RawResponse{
+        raw_response = &RawResponse{
             Id: -1,
             Err: errors.New("Invalid raw request."),
         }
@@ -334,29 +337,30 @@ func (unc *Unicorn)interact(raw_request *unicorn.RawRequest) *unicorn.RawRespons
         end := time.Now().Nanosecond()
         if err != nil {
             errMsg := fmt.Sprintf("Sync call Error: %s", err)
-            raw_response = &unicorn.RawResponse{
+            raw_response = &RawResponse{
                 Id: raw_request.Id,
                 Err: errors.New(errMsg),
                 Elapse: time.Duration(end - start),
             }
         } else {
-            raw_response = &unicorn.RawResponse{
+            raw_response = &RawResponse{
                 Id : raw_request.Id,
                 Resp: resp,
                 Elapse: time.Duration(end - start),
             }
         }
     }
+    unc.finalCnt ++ //总调用计数+1
     return raw_response
 }
 
 //保存结果:将结果存入通道
-func (unc *Unicorn) saveResult(result *unicorn.CallResult) bool {
-    if unc.status == unicorn.STARTED && unc.stopFlag == 0 {
+func (unc *Unicorn) saveResult(result *CallResult) bool {
+    if unc.status == STARTED && unc.stopFlag == false {
         unc.resultChan <- result
         return true
     }
-    unicorn.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
+    log.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
     return false
 }
 
