@@ -1,5 +1,6 @@
 unicorn based on golang
 
+一个基于Golang的TCP client框架。
 
 测试：
 go test -run=TestStart github.com/hq-cml/unicorn-go/plugin -v
