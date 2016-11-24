@@ -1,1 +1,6 @@
 unicorn based on golang
+
+
+测试：
+go test -run=TestStart github.com/hq-cml/unicorn-go/plugin -v
+go test -run=TestStop  github.com/hq-cml/unicorn-go/plugin -v
