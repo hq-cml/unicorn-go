@@ -19,19 +19,22 @@ func NewUnicorn(
         qps uint32,
         duration time.Duration,
         concurrency uint32,
+        keepalive bool,
         resultChan chan *CallResult) (UnicornIntfs, error) {
 
     log.Logger.Info("Begin New Unicorn")
 
     //参数校验
+    if (qps != 0 && concurrency != 0) ||
+          (qps == 0 && concurrency == 0) {
+        //qps和concurrency不能同时为0，或者同时不为0
+        return nil, errors.New("qps and concurrency can't be 0 all. or is 0 all!")
+    }
     if plugin == nil {
         return nil, errors.New("Nil plugin")
     }
     if timeout == 0 {
         return nil, errors.New("Nil timeout")
-    }
-    if qps == 0 {
-        return nil, errors.New("Nil qps")
     }
     if duration == 0 {
         return nil, errors.New("Nil duration")
@@ -42,17 +45,29 @@ func NewUnicorn(
 
     //如果并发量为空，则需要自行计算并发量，这个计算方法比较晦涩，如果自己指定并发量比较容易理解，但不够科学
     //concurrency ≈ 规定的最大响应超时时间 / 规定的发送间隔时间
-    c := concurrency
-    if c == 0 {
+    var c uint32
+    if qps != 0 {
         var conc int64 = int64(timeout) / int64(1e9/ qps) + 1
         if conc > math.MaxInt32 {
             conc = math.MaxInt32
         }
         c = uint32(conc)
         log.Logger.Info("Concurrency auto calculate： " + fmt.Sprintf("%d" ,c))
+    } else if concurrency != 0 {
+        c = concurrency
+    } else {
+        log.Logger.Fatal("qps and concurrency can't be 0 all. or is 0 all!")
     }
 
-    //实例化线程池
+    //设定节流阀(利用断续器，实现的循环定时事件，用于控制请求发出的频率)
+    var throttle <-chan time.Time
+    if qps > 0 {
+        interval := time.Duration(1e9 / qps) //发送每个请求的间隔
+        throttle = time.Tick(interval)
+        log.Logger.Info("The interval of per request is " + fmt.Sprintf("%d" ,interval) + " Nanosecond")
+    }
+
+    //实例化goroutine池
     pool, err := wp.NewWorkerPool(c)
     if err != nil {
         return nil, err
@@ -72,6 +87,8 @@ func NewUnicorn(
         //finalCnt : make(chan uint64, 2),
         finalCnt   : 0,
         pool: pool,
+        throttle: throttle,
+        keepalive: keepalive,
     }
 
     return unc, nil
@@ -82,14 +99,6 @@ func NewUnicorn(
 func (unc *Unicorn)Start() {
     log.Logger.Info("Unicorn Start...")
 
-    //设定节流阀(利用断续器，实现的循环定时事件)
-    var throttle <-chan time.Time
-    if unc.qps > 0 {
-        interval := time.Duration(1e9 / unc.qps) //发送每个请求的间隔
-        throttle = time.Tick(interval)
-        log.Logger.Info("The interval of per request is " + fmt.Sprintf("%d" ,interval) + " Nanosecond")
-    }
-
     //停止定时器，当探测持续到了指定时间，能够停止unicorn
     //实际测试，这个地方是否启动一个goroutine，效果是一样的
     //go func() { // ??为何要单独一个goroutinue
@@ -99,18 +108,24 @@ func (unc *Unicorn)Start() {
     })
     //}()
 
-    // 初始化完结信号通道
-    //unc.finalCnt = make(chan uint64, 1) //放在NewUnicorn里面可以吗
-
     //启动状态
     unc.status = STARTED
 
     //放在独立的goroutine中，使得请求的发送工作异步化。因为Start是主goroutine，不应该有被阻塞住的可能性。
     //主goroutine是应该最外层起到整体管理的作用，doRequest是存在被阻塞住的可能性的，即协程池的Take操作
     go func() {
-        log.Logger.Info("genRequest ...")
-        //这是一个同步的过程
-        unc.doRequest(throttle)
+        log.Logger.Info("doRequest ...")
+        //这是一个同步的过程(因为存在协程池的Tack操作）
+        //unc.doRequest()
+
+        //无限循环，保持足够多的worker，保持concurrency
+        for {
+            //异步发送请求（此处是有可能被阻塞住的--协程池的Take操作）
+            //unc.asyncSendRequest()
+            unc.createWorker()
+        }
+
+        //TODO 等待还票？
 
         //接收最终个数
         //call_count := <-unc.finalCnt
@@ -143,7 +158,7 @@ func (unc *Unicorn) Status() UncStatus {
 
 /******************** 其他核心函数 *******************/
 //处理停止“信号”
-func (unc * Unicorn) handleStopSign(call_cnt uint64) {
+func (unc * Unicorn) handleStopSign() {
     //信号标记变为1
     unc.stopFlag = true
     log.Logger.Info("handleStopSign. Closing result chan...")
@@ -162,12 +177,10 @@ func (unc * Unicorn) handleStopSign(call_cnt uint64) {
  * 通过节流阀throttle控制发送请求的频度
  * 请求过程中不断检测stopSign，如果检测到，则将最终结果传入finalCnt
  */
-func (unc* Unicorn) doRequest(throttle <-chan time.Time) {
-    call_cnt := uint64(0)
-
+func (unc* Unicorn) doRequest() {
     Loop:
-    //一个无限循环，只要满足条件，就发送请求
-    for ;;call_cnt++ {
+    //一个无限循环，产生足够多的worker，保持concurrency
+    for {
         //带default的select分支，不会阻塞，放在这里为了能够及时收到Stop信号，但感觉没太大必要
         //select {
         //case <- unc.sigChan:
@@ -177,15 +190,16 @@ func (unc* Unicorn) doRequest(throttle <-chan time.Time) {
         //}
 
         //异步发送请求（此处是有可能被阻塞住的--协程池的Take操作）
-        unc.asyncSendRequest()
+        unc.createWorker()
 
+        //因为新增了长连接模式，所以asyncSendRequest可能长时间不返回了（因为woker们会保持连接持续发送请求），所以下面的sigChan信号接收位置需要调整到worker内部
         //阻塞等待节流阀throttle信号
-        select {
-        case <-throttle:     //throttle用来控制发送频率，其实本身是空转一次不作实质事情，进入下次循环，发送请求
-        case <-unc.sigChan:  //停止信号
-            unc.handleStopSign(call_cnt)
-            break Loop
-        }
+        //select {
+        //case <-unc.throttle:     //throttle用来控制发送频率，其实本身是空转一次不作实质事情，进入下次循环，发送请求
+        //case <-unc.sigChan:  //停止信号
+        //    unc.handleStopSign(call_cnt)
+        //    break Loop
+        //}
 
     }
 }
@@ -217,18 +231,36 @@ func (unc *Unicorn) handleError() {
     }
 }
 
-//实际发送请求的逻辑
-//既然是golang，很自然的应该想到这个逻辑应该是一个异步的goroutine
-//但为了防止无限分配goroutine，所以结合worker_pool，实现goroutine总量控制
-func (unc *Unicorn) asyncSendRequest() {
+//生成goroutine，发送请求，利用worker_pool，控制goroutine总量
+func (unc *Unicorn) createWorker()() {
     //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
     //这个时机如果不正确，就无法起到控制goroutine的作用
     unc.pool.Take() //主goroutine申请派生
 
     //子goroutine
     go func() {
-        //注册错误处理
+        //注册错误处理，//TODO 错误处理里面需要归还票吗？
         defer unc.handleError()
+
+        //检查停止信号
+        select {
+        case <-unc.sigChan:  //停止信号
+            unc.handleStopSign()
+        default:
+        }
+
+        //如果节流阀非空（说明设置了qps），则利用节流阀进行频率控制
+        if unc.throttle != nil {
+            select {
+            case <-unc.throttle:     //throttle用来控制发送频率，其实本身是空转一次不作实质事情，进入下次循环，发送请求
+            }
+        }
+
+
+        //如果程序停止，则退出
+        if unc.stopFlag {
+            return
+        }
 
         //构造请求
         raw_request := unc.plugin.GenRequest()
@@ -268,60 +300,11 @@ func (unc *Unicorn) asyncSendRequest() {
             }
             unc.saveResult(result) //结果存入通道
         }
+
+
         unc.pool.Return() //子goroutine归还
     }()
 }
-/*
-//注释的方案也是一种可行方案，但是有一个严重的问题就是会启动孙goroutine来实施交互
-//子协程则负责访问超时的判断。这样的结果就是导致最多会有worker_pool容量两倍的goroutine
-//被创建出来，所以不推荐这个方案
-func (unc *Unicorn) asyncSendRequest() {
-    //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
-    //这个时机如果不正确，就无法起到控制goroutine的作用
-    unc.pool.Take() //主goroutine申请派生
-
-    //子goroutine
-    go func() {
-        //注册错误处理
-        defer unc.handleError()
-
-        //开始~
-        raw_request := unc.plugin.GenReq()
-
-        var result *unicorn.CallResult
-        raw_response_chan := make(chan *unicorn.RawResponse, 1)
-        //启动一个孙子goroutine
-        go unc.interact(&raw_request, raw_response_chan)
-
-        select {
-        case raw_response := <-raw_response_chan:
-            if raw_response.Err != nil {
-                result = &unicorn.CallResult{
-                    Id     : raw_response.Id,
-                    Req    : raw_request,
-                    Resp   : raw_response,
-                    Code   : unicorn.RESULT_CODE_ERROR_CALL,
-                    Msg    : raw_response.Err.Error(),
-                    Elapse : raw_response.Elapse,
-                }
-            }else {
-                result = unc.plugin.CheckResp(raw_request, *raw_response)
-                result.Elapse = raw_response.Elapse
-            }
-        case <- time.After(unc.timeout):
-            result = &unicorn.CallResult{
-                Id     : raw_response.Id,
-                Req    : raw_request,
-                Code   : unicorn.RESULT_CODE_WARING_TIMEOUT,
-                Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
-            }
-        }
-
-        unc.saveResult(result) //结果存入通道
-        unc.pool.Return() //子goroutine归还
-    }()
-}
-*/
 
 //实际的交互逻辑，调用了plugin.call函数
 func (unc *Unicorn)interact(raw_request *RawRequest) *RawResponse{

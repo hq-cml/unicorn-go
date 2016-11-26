@@ -16,10 +16,10 @@ type UnicornIntfs interface {
 
 //Unicorn接口的实现类型
 type Unicorn struct {
-    qps           uint32             //规定每秒的请求量
+    qps           uint32             //每秒的请求量，这个值和下面concurrency不同时设置，因为会存在一定的矛盾
+    concurrency   uint32             //并发量，这个值不能喝qps同时设置，可以用户指定，或者根据timeout和qps算出来
     timeout       time.Duration      //规定的每个请求最大延迟
     duration      time.Duration      //持续探测访问持续时间
-    concurrency   uint32             //并发量，这个值是根据timeout和qps算出来的
     sigChan       chan byte          //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
     status        UncStatus          //当前状态
     resultChan    chan *CallResult   //保存调用结果的通道
@@ -28,6 +28,9 @@ type Unicorn struct {
     stopFlag      bool               //停止发送后续结果的标记。
     //finalCnt      chan uint64      //完结信号的传递通道，同时被用于传递调用执行计数。感觉这样的设计完全没必要
     finalCnt      uint64             //最终调用计数
+    throttle      <-chan time.Time   //断续器（time.Tick），用来控制请求的频率，如果设置了qps，则断续器有效非空
+    keepalive     bool               //是否维持长连接模式
+    //locker TODO
 }
 
 //原生request的结构。本质上就是字节流
