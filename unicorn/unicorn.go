@@ -99,33 +99,30 @@ func NewUnicorn(
 func (unc *Unicorn)Start() {
     log.Logger.Info("Unicorn Start...")
 
-    //停止定时器，当探测持续到了指定时间，能够停止unicorn
-    //实际测试，这个地方是否启动一个goroutine，效果是一样的
-    //go func() { // ??为何要单独一个goroutinue
+    //停止定时器，当探测持续到了指定时间，停止unicorn
     time.AfterFunc(unc.duration, func(){
         log.Logger.Info("Time's up. Stoping Unicorn...")
         unc.sigChan <- 1
     })
-    //}()
 
     //启动状态
     unc.status = STARTED
 
-    //放在独立的goroutine中，使得请求的发送工作异步化。因为Start是主goroutine，不应该有被阻塞住的可能性。
+    //独立的goroutine，请求的发送工作异步化。因为Start属于主goroutine，不应该有被阻塞住的可能性。
     //主goroutine是应该最外层起到整体管理的作用，doRequest是存在被阻塞住的可能性的，即协程池的Take操作
     go func() {
         log.Logger.Info("doRequest ...")
         //这是一个同步的过程(因为存在协程池的Tack操作）
         //unc.doRequest()
 
-        //无限循环，保持足够多的worker，保持concurrency
+        //无限循环，保持足够多的worker，即维持concurrency数量的worker
         for {
-            //异步发送请求（此处是有可能被阻塞住的--协程池的Take操作）
+            //异步发送请求（此处是可能被阻塞--协程池的Take操作）
             //unc.asyncSendRequest()
             unc.createWorker()
         }
 
-        //TODO 等待还票？
+        //TODO 等待所有worker归还票？
 
         //接收最终个数
         //call_count := <-unc.finalCnt
@@ -178,7 +175,7 @@ func (unc * Unicorn) handleStopSign() {
  * 请求过程中不断检测stopSign，如果检测到，则将最终结果传入finalCnt
  */
 func (unc* Unicorn) doRequest() {
-    Loop:
+    //Loop:
     //一个无限循环，产生足够多的worker，保持concurrency
     for {
         //带default的select分支，不会阻塞，放在这里为了能够及时收到Stop信号，但感觉没太大必要
@@ -231,31 +228,37 @@ func (unc *Unicorn) handleError() {
     }
 }
 
+//归还worker_pool票
+func (unc *Unicorn) returnTicket() {
+    unc.pool.Return() //还票
+}
+
 //生成goroutine，发送请求，利用worker_pool，控制goroutine总量
 func (unc *Unicorn) createWorker()() {
-    //Take和Return时机很重要，必须是主goroutine申请，子goroutine归还！
-    //这个时机如果不正确，就无法起到控制goroutine的作用
-    unc.pool.Take() //主goroutine申请派生
+    //Take和Return时机很重要，必须是父goroutine申请，子goroutine归还！否则无法起到控制goroutine的作用
+    unc.pool.Take()
 
     //子goroutine
     go func() {
-        //注册错误处理，//TODO 错误处理里面需要归还票吗？
+        //注册:错误处理
         defer unc.handleError()
 
-        //检查停止信号
+        //注册:归还票，多个defer会逆序执行
+        defer unc.returnTicket()
+
+        //检查停止信号,default--非阻塞式检查
         select {
         case <-unc.sigChan:  //停止信号
             unc.handleStopSign()
         default:
         }
 
-        //如果节流阀非空（说明设置了qps），则利用节流阀进行频率控制
+        //如果节流阀非空（说明设置了qps），则利用节流阀进行频率控制（阻塞式等待）
         if unc.throttle != nil {
             select {
-            case <-unc.throttle:     //throttle用来控制发送频率，其实本身是空转一次不作实质事情，进入下次循环，发送请求
+            case <-unc.throttle: //throttle用来控制发送频率，其实本身是空转一次不作实质事情
             }
         }
-
 
         //如果程序停止，则退出
         if unc.stopFlag {
@@ -301,8 +304,7 @@ func (unc *Unicorn) createWorker()() {
             unc.saveResult(result) //结果存入通道
         }
 
-
-        unc.pool.Return() //子goroutine归还
+        //unc.pool.Return() //还票，放到defer中
     }()
 }
 
