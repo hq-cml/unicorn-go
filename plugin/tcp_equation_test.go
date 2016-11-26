@@ -10,8 +10,9 @@ import (
     "sync"
     "encoding/json"
     "errors"
-    "strconv"
+    "bufio"
     "bytes"
+    "strconv"
 )
 
 var printDetail = true
@@ -32,16 +33,17 @@ func TestStart(t *testing.T) {
     }
 
     //初始化Plugin
-    plugin_tep := NewTcpEquationPlugin(addr)
+    tep := NewTcpEquationPlugin()
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
-    timeout := 10*time.Millisecond
+    timeout := 50*time.Millisecond
     qps := uint32(1000)
-    duration := 10 * time.Second
+    duration := 5 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
 
-    unc, err := unicorn.NewUnicorn(plugin_tep, timeout, qps, duration, 0, false, result_chan)
+    unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, true, result_chan)
+    //unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 20, false, result_chan)
     if err != nil {
         t.Fatalf("Unicorn initialization failing: %s.\n",  err)
         t.FailNow()
@@ -93,7 +95,7 @@ func TestStop(t *testing.T) {
     }
 
     //初始化Plugin
-    plugin_tep := NewTcpEquationPlugin(addr)
+    plugin_tep := NewTcpEquationPlugin()
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
@@ -101,7 +103,7 @@ func TestStop(t *testing.T) {
     qps := uint32(10)
     duration := 10 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
-    unc, err := unicorn.NewUnicorn(plugin_tep, timeout, qps, duration, 0, false, result_chan)
+    unc, err := unicorn.NewUnicorn(addr, plugin_tep, timeout, qps, duration, 0, false, result_chan)
     if err != nil {
         t.Fatalf("Unicorn initialization failing: %s.\n",  err)
         t.FailNow()
@@ -147,6 +149,7 @@ type TcpServer struct {
     listener net.Listener
     active   bool
     lock     *sync.Mutex
+    connCnt  int64        //处理的连接数
 }
 
 func (self *TcpServer) init(addr string) error {
@@ -161,6 +164,7 @@ func (self *TcpServer) init(addr string) error {
     }
     self.listener = ln
     self.active = true
+    self.connCnt = 0
     return nil
 }
 
@@ -177,6 +181,7 @@ func (self *TcpServer) Listen(addr string) error {
                 continue
             }
             go reqHandler(conn)
+            self.connCnt++
             runtime.Gosched()
         }
     }(&self.active)
@@ -190,6 +195,7 @@ func NewTcpServer() *TcpServer {
 func (self *TcpServer) Close() bool {
     self.lock.Lock()
     defer self.lock.Unlock()
+    fmt.Println("Server serve client cnt is :", self.connCnt)
     if self.active {
         self.listener.Close()
         self.active = false
@@ -203,6 +209,7 @@ func reqHandler(conn net.Conn) {
     var errMsg string
     var sresp ServerEquationResp
     req, err := read(conn, DELIM)
+    //fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:", string(req))
     if err != nil {
         errMsg = fmt.Sprintf("Server: Req Read Error: %s", err)
     } else {
@@ -220,6 +227,7 @@ func reqHandler(conn net.Conn) {
         sresp.Err = errors.New(errMsg)
     }
     bytes, err := json.Marshal(sresp)
+    //fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:", string(bytes))
     if err != nil {
         fmt.Errorf("Server: Resp Marshal Error: %s", err)
     }
@@ -227,6 +235,7 @@ func reqHandler(conn net.Conn) {
     if err != nil {
         fmt.Errorf("Server: Resp Write error: %s", err)
     }
+    //conn.Close() //短连接
 }
 
 func genFormula(operands []int, operator string, result int, equal bool) string {
@@ -248,4 +257,33 @@ func genFormula(operands []int, operator string, result int, equal bool) string 
     }
     buff.WriteString(strconv.Itoa(result))
     return buff.String()
+}
+
+func write(conn net.Conn, content []byte, delim byte) (int, error) {
+    writer := bufio.NewWriter(conn)
+    n, err := writer.Write(content)
+    if err == nil {
+        writer.WriteByte(delim)
+    }
+    if err == nil {
+        err = writer.Flush()
+    }
+    return n, err
+}
+
+func read(conn net.Conn, delim byte) ([]byte, error) {
+    readBytes := make([]byte, 1)
+    var buffer bytes.Buffer
+    for {
+        _, err := conn.Read(readBytes)
+        if err != nil {
+            return nil, err
+        }
+        readByte := readBytes[0]
+        if readByte == delim {
+            break
+        }
+        buffer.WriteByte(readByte)
+    }
+    return buffer.Bytes(), nil
 }

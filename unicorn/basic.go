@@ -16,6 +16,7 @@ type UnicornIntfs interface {
 
 //Unicorn接口的实现类型
 type Unicorn struct {
+    serverAdd     string             //服务端地址
     qps           uint32             //每秒的请求量，这个值和下面concurrency不同时设置，因为会存在一定的矛盾
     concurrency   uint32             //并发量，这个值不能喝qps同时设置，可以用户指定，或者根据timeout和qps算出来
     timeout       time.Duration      //规定的每个请求最大延迟
@@ -52,8 +53,8 @@ type ResultCode int
 const (
     RESULT_CODE_SUCCESS         ResultCode = 0    //成功
     RESULT_CODE_WARING_TIMEOUT  ResultCode = 1001 //请求超时
-    RESULT_CODE_ERROR_CALL      ResultCode = 2001 //错误调用
-    RESULT_CODE_ERROR_RESPONSE  ResultCode = 2002 //错误的相应内容
+    RESULT_CODE_ERROR_CALL      ResultCode = 2001 //请求发生错误
+    RESULT_CODE_ERROR_RESPONSE  ResultCode = 2002 //错误的响应内容
     RESULT_CODE_ERROR_CALEE     ResultCode = 2003 //被调用方内部错误
     RESULT_CODE_FATAL_CALL      ResultCode = 3001 //调用过程中的致命错误
 )
@@ -61,8 +62,8 @@ const (
 //调用结果的结构。
 type CallResult struct {
     Id     int64         //ID
-    Req    RawRequest    //原生请求
-    Resp   RawResponse   //原生响应
+    //Req    RawRequest    //原生请求
+    //Resp   RawResponse   //原生响应
     Code   ResultCode    //响应码
     Msg    string        //细节信息
     Elapse time.Duration //耗时，这个貌似和RawResponse里面的Elapse重复。。
@@ -76,12 +77,20 @@ const (
     STOPPED                    //2
 )
 
+//判断服务端响应是否完整的几种情况
+type ServerRespStatus int8
+const (
+    SER_OK          ServerRespStatus = iota  //0 完整返回
+    SER_NEEDMORE                             //1 没能找到合适的包定界符，还需要继续读取网络数据
+    SER_ERROR                                //2 服务端出现了某种错误
+)
+
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
-    //构造请求
-    GenRequest() RawRequest
-    //调用
-    Call(req []byte, timeout time.Duration)([]byte, error)
-    //检查响应
-    CheckResponse(rawReq RawRequest, rawResp RawResponse) *CallResult
+    //必选函数：生成请求内容
+    GenRequest(id int64) RawRequest
+    //必选函数：判断接收到的内容，是否是完整的响应包
+    CheckFull(id int64, response []byte)(ServerRespStatus)
+    //必选函数：检查响应内容是否符合用户需求
+    CheckResponse(rawReq RawRequest, response []byte) *CallResult
 }

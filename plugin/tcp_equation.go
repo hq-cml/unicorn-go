@@ -8,12 +8,12 @@ package plugin
 import (
     "fmt"
     "github.com/hq-cml/unicorn-go/unicorn"
-    "time"
     "encoding/json"
-    "net"
-    "bytes"
-    "bufio"
+    //"net"
+    //"bytes"
+    //"bufio"
     "math/rand"
+    //"strconv"
 )
 
 const (
@@ -34,12 +34,10 @@ type ServerEquationResp struct {
 }
 
 type TcpEquationPlugin struct {
-    addr string
 }
 
 //*TcpEquationPlugin实现PluginIntfs接口
-func (tep *TcpEquationPlugin) GenRequest() unicorn.RawRequest {
-    id := time.Now().UnixNano() //用纳秒就能保证唯一性了吗？
+func (tep *TcpEquationPlugin) GenRequest(id int64) unicorn.RawRequest {
     req := ServerEquationReq{
         Id: id,
         Operands:[]int{ //两个随机数
@@ -55,28 +53,37 @@ func (tep *TcpEquationPlugin) GenRequest() unicorn.RawRequest {
     if err != nil {
         panic(err) //框架会接住这个panic，defer unc.handleError()
     }
+    bytes = append(bytes, DELIM)
     raw_reqest := unicorn.RawRequest{Id: id, Req: bytes}
     return raw_reqest
 }
 
-func (tep *TcpEquationPlugin) Call(req []byte, timeout time.Duration) ([]byte, error) {
-    conn, err := net.DialTimeout("tcp", tep.addr, timeout)
-    if err != nil {
-        return nil, err
+func (tep *TcpEquationPlugin)CheckFull(id int64, response []byte)(unicorn.ServerRespStatus) {
+    //校验response
+    var sresp ServerEquationResp
+
+    l := len(response)
+
+    if response[l-1] == DELIM {
+        err := json.Unmarshal(response[:l-1], &sresp)
+        if err != nil {
+            fmt.Println("AAAA")
+            return unicorn.SER_NEEDMORE
+        }
+
+        if sresp.Id != id {
+            return unicorn.SER_ERROR
+        }
+    } else {
+        fmt.Println(string(response), len(response))
+        return unicorn.SER_NEEDMORE
     }
 
-    _, err = write(conn, req, DELIM)
-    if err != nil {
-        return nil, err
-    }
-    return read(conn, DELIM)
+    return unicorn.SER_OK
 }
 
-func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, raw_resp unicorn.RawResponse) *unicorn.CallResult {
+func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) *unicorn.CallResult {
     var result unicorn.CallResult
-    result.Id = raw_resp.Id
-    result.Req = raw_req
-    result.Resp = raw_resp
 
     //校验request
     var sreq ServerEquationReq
@@ -89,10 +96,10 @@ func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, raw_resp
 
     //校验response
     var sresp ServerEquationResp
-    err = json.Unmarshal(raw_resp.Resp, &sresp)
+    err = json.Unmarshal(response, &sresp)
     if err != nil {
         result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(raw_resp.Resp))
+        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(response))
         return &result
     }
 
@@ -113,52 +120,20 @@ func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, raw_resp
     //校验最终计算结果是否一致
     if sresp.Result != op(sreq.Operands, sreq.Operator) {
         result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Incorrect result: %s!\n",
-            genFormula(sreq.Operands, sreq.Operator, sresp.Result, false))
+        result.Msg = fmt.Sprintf("Incorrect result: %s!\n", genFormula(sreq.Operands, sreq.Operator, sresp.Result, false))
         return &result
     }
 
     //一切都ok，则算是一次完整的请求
+    result.Id = sresp.Id
     result.Code = unicorn.RESULT_CODE_SUCCESS
     result.Msg = fmt.Sprintf("Success.(%s)", sresp.Formula)
     return &result
 }
 
 //New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现
-func NewTcpEquationPlugin(addr string) unicorn.PluginIntfs {
-    return &TcpEquationPlugin{
-        addr: addr,
-    }
-}
-
-//TODO 这两个函数应该挪到框架中去
-func write(conn net.Conn, content []byte, delim byte) (int, error) {
-    writer := bufio.NewWriter(conn)
-    n, err := writer.Write(content)
-    if err == nil {
-        writer.WriteByte(delim)
-    }
-    if err == nil {
-        err = writer.Flush()
-    }
-    return n, err
-}
-
-func read(conn net.Conn, delim byte) ([]byte, error) {
-    readBytes := make([]byte, 1)
-    var buffer bytes.Buffer
-    for {
-        _, err := conn.Read(readBytes)
-        if err != nil {
-            return nil, err
-        }
-        readByte := readBytes[0]
-        if readByte == delim {
-            break
-        }
-        buffer.WriteByte(readByte)
-    }
-    return buffer.Bytes(), nil
+func NewTcpEquationPlugin() unicorn.PluginIntfs {
+    return &TcpEquationPlugin{ }
 }
 
 func op(operands []int, operator string) int {
@@ -199,3 +174,4 @@ func op(operands []int, operator string) int {
     }
     return result
 }
+

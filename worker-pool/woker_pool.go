@@ -1,4 +1,5 @@
 package worker_pool
+
 /*
  * goroutine协程池实现
  * 利用缓冲通道作为载体，实现一个goroutine池子，利用worker-pool可以控制goroutine最大数量
@@ -7,7 +8,6 @@ package worker_pool
  * 票池，类似于POSIX的信号量。初始池子是满的，每生产一个goroutine，则向票池中取一张票;
  * 每消亡一个goroutine，就归还一张票。当票池为空的时候，所有生产goroutine的行为将阻塞
  */
-
 import (
     "fmt"
     "errors"

@@ -7,13 +7,13 @@ import (
     "fmt"
     "time"
     "errors"
-    "bytes"
 )
 
 /*
  * 惯例New函数，实例化Unicorn，返回的是UnicornIntfs的实现
  */
 func NewUnicorn(
+        addr string,
         plugin PluginIntfs,
         timeout time.Duration,
         qps uint32,
@@ -41,6 +41,9 @@ func NewUnicorn(
     }
     if resultChan == nil {
         return nil, errors.New("Nil resultChan")
+    }
+    if addr == "" {
+        return nil, errors.New("Nil address")
     }
 
     //如果并发量为空，则需要自行计算并发量，这个计算方法比较晦涩，如果自己指定并发量比较容易理解，但不够科学
@@ -75,20 +78,21 @@ func NewUnicorn(
 
     //创建instance
     unc := &Unicorn{
+        serverAdd  : addr,
         plugin     : plugin,
         timeout    : timeout,
         qps        : qps,
         duration   : duration,
-        concurrency   : c,
+        concurrency: c,
         sigChan    : make(chan byte, 1),
-        stopFlag : false,
+        stopFlag   : false,
         status     : ORIGINAL,
         resultChan : resultChan,
         //finalCnt : make(chan uint64, 2),
         finalCnt   : 0,
-        pool: pool,
-        throttle: throttle,
-        keepalive: keepalive,
+        pool       : pool,
+        throttle   : throttle,
+        keepalive  : keepalive,
     }
 
     return unc, nil
@@ -101,7 +105,7 @@ func (unc *Unicorn)Start() {
 
     //停止定时器，当探测持续到了指定时间，停止unicorn
     time.AfterFunc(unc.duration, func(){
-        log.Logger.Info("Time's up. Stoping Unicorn...")
+        log.Logger.Info("Time's up. Sending Stop signal...")
         unc.sigChan <- 1
     })
 
@@ -134,22 +138,6 @@ func (unc *Unicorn) Status() UncStatus {
     return unc.status
 }
 
-/******************** 其他核心函数 *******************/
-//处理停止“信号”
-func (unc * Unicorn) handleStopSign() {
-    //信号标记变为1
-    unc.stopFlag = true
-    log.Logger.Info("handleStopSign. Closing result chan...")
-    //关闭结果存储通道
-    close(unc.resultChan)
-
-    //unc.finalCnt <- call_cnt
-    ////为什么需要两次写入通道呢
-    ////因为Start方法和Stop方法，均存在从finalCnt接收的情况，所以如果两个同时发生，会造成其中一个阻塞
-    ////所以，索性写入两次，保证Start和Stop均不会阻塞！
-    //unc.finalCnt <- call_cnt
-}
-
 /*
  * 发送请求的总控制逻辑，放置在独立的goroutine中执行
  */
@@ -162,158 +150,17 @@ func (unc* Unicorn) doRequest() {
         unc.createWorker()
     }
 
-    //TODO 等待所有worker归还票？
+    //等待所有worker归还票
+    for {
+        if unc.pool.Remainder() == unc.concurrency {
+            break
+        }
+        time.Sleep(10*time.Millisecond)
+    }
 
     unc.status = STOPPED
-    log.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", unc.finalCnt))
-}
-
-//兜底的错误处理，以defer的形式存在
-func (unc *Unicorn) handleError() {
-    if p := recover(); p != nil {
-        var buff bytes.Buffer
-        buff.WriteString("A Painic! (")
-        //recover的返回值，静态类型是interface，动态类型未知，因此需要类型断言
-        err, ok := interface{}(p).(error)
-        if ok { //断言成功
-            buff.WriteString("error :" + err.Error())
-        } else {
-            buff.WriteString("clue :" + fmt.Sprintf("%v", p))
-        }
-        buff.WriteString(")")
-        msg := buff.String()
-        log.Logger.Info(msg)
-
-        //填充结果
-        result := &CallResult {
-            Id     : -1,
-            Code   : RESULT_CODE_FATAL_CALL,
-            Msg    : msg,
-        }
-        //结果存入通道
-        unc.saveResult(result)
-    }
-}
-
-//归还worker_pool票
-func (unc *Unicorn) returnTicket() {
-    unc.pool.Return() //还票
-}
-
-//生成goroutine，发送请求，利用worker_pool，控制goroutine总量
-func (unc *Unicorn) createWorker()() {
-    //Take和Return时机很重要，必须是父goroutine申请，子goroutine归还！否则无法起到控制goroutine的作用
-    unc.pool.Take()
-
-    //子goroutine
-    go func() {
-        //注册:错误处理
-        defer unc.handleError()
-
-        //注册:归还票，多个defer会逆序执行
-        defer unc.returnTicket()
-
-        //检查停止信号,default--非阻塞式检查
-        select {
-        case <-unc.sigChan:  //停止信号
-            unc.handleStopSign()
-        default:
-        }
-
-        //如果节流阀非空（说明设置了qps），则利用节流阀进行频率控制（阻塞式等待）
-        if unc.throttle != nil {
-            select {
-            case <-unc.throttle: //throttle用来控制发送频率，其实本身是空转一次不作实质事情
-            }
-        }
-
-        //如果程序停止，则退出
-        if unc.stopFlag {
-            return
-        }
-
-        //构造请求
-        raw_request := unc.plugin.GenRequest()
-
-        //启动一个异步定时器
-        var timeout_flag = false
-        timer := time.AfterFunc(unc.timeout, func(){
-            timeout_flag = true
-            result := &CallResult{
-                Id     : raw_request.Id,
-                Req    : raw_request,
-                Code   : RESULT_CODE_WARING_TIMEOUT,
-                Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
-            }
-            unc.saveResult(result) //结果存入通道
-        })
-
-        //同步交互,调用plugin的Call方法获得response
-        raw_response := unc.interact(&raw_request)
-
-        //上面是一个同步的过程，所以到了此处，可能是已经超时了
-        //所以检测超时标志，只有未超时，才有必要继续
-        if !timeout_flag {
-            timer.Stop() //!!立刻停止异步定时器，防止异步的方法执行，写入了一个超时结果
-            var result *CallResult
-            if raw_response.Err != nil {
-                result = &CallResult{
-                    Id     : raw_response.Id,
-                    Req    : raw_request,
-                    Code   : RESULT_CODE_ERROR_CALL,
-                    Msg    : raw_response.Err.Error(),
-                    Elapse : raw_response.Elapse,
-                }
-            }else {
-                result = unc.plugin.CheckResponse(raw_request, *raw_response)
-                result.Elapse = raw_response.Elapse
-            }
-            unc.saveResult(result) //结果存入通道
-        }
-
-        //unc.pool.Return() //还票，放到defer中
-    }()
-}
-
-//实际的交互逻辑，调用了plugin.call函数
-func (unc *Unicorn)interact(raw_request *RawRequest) *RawResponse{
-    var raw_response *RawResponse
-    if raw_request == nil {
-        raw_response = &RawResponse{
-            Id: -1,
-            Err: errors.New("Invalid raw request."),
-        }
-    } else {
-        start := time.Now().Nanosecond()
-        resp, err := unc.plugin.Call(raw_request.Req, unc.timeout)
-        end := time.Now().Nanosecond()
-        if err != nil {
-            errMsg := fmt.Sprintf("Sync call Error: %s", err)
-            raw_response = &RawResponse{
-                Id: raw_request.Id,
-                Err: errors.New(errMsg),
-                Elapse: time.Duration(end - start),
-            }
-        } else {
-            raw_response = &RawResponse{
-                Id : raw_request.Id,
-                Resp: resp,
-                Elapse: time.Duration(end - start),
-            }
-        }
-    }
-    unc.finalCnt ++ //总调用计数+1
-    return raw_response
-}
-
-//保存结果:将结果存入通道
-func (unc *Unicorn) saveResult(result *CallResult) bool {
-    if unc.status == STARTED && unc.stopFlag == false {
-        unc.resultChan <- result
-        return true
-    }
-    log.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
-    return false
+    //TODO 这里有问题，打印不出来，得查出为什么
+    log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d)", unc.finalCnt))
 }
 
 /*
