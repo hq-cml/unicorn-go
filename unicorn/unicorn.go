@@ -108,28 +108,9 @@ func (unc *Unicorn)Start() {
     //启动状态
     unc.status = STARTED
 
-    //独立的goroutine，请求的发送工作异步化。因为Start属于主goroutine，不应该有被阻塞住的可能性。
-    //主goroutine是应该最外层起到整体管理的作用，doRequest是存在被阻塞住的可能性的，即协程池的Take操作
-    go func() {
-        log.Logger.Info("doRequest ...")
-        //这是一个同步的过程(因为存在协程池的Tack操作）
-        //unc.doRequest()
-
-        //无限循环，保持足够多的worker，即维持concurrency数量的worker
-        for {
-            //异步发送请求（此处是可能被阻塞--协程池的Take操作）
-            //unc.asyncSendRequest()
-            unc.createWorker()
-        }
-
-        //TODO 等待所有worker归还票？
-
-        //接收最终个数
-        //call_count := <-unc.finalCnt
-        unc.status = STOPPED
-
-        log.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", unc.finalCnt))
-    }()
+    //因为Start属于主goroutine，不应该有被阻塞住的可能性。主goroutine是应该最外层起到整体管理的作用。
+    //而doRequest是存在被阻塞住的可能性的，即协程池的Take操作，所以启动独立的goroutine
+    go unc.doRequest()
 }
 
 //停止，返回值表示停止时已完成请求数和否成功停止
@@ -170,35 +151,21 @@ func (unc * Unicorn) handleStopSign() {
 }
 
 /*
- * 发送请求的总控制逻辑
- * 通过节流阀throttle控制发送请求的频度
- * 请求过程中不断检测stopSign，如果检测到，则将最终结果传入finalCnt
+ * 发送请求的总控制逻辑，放置在独立的goroutine中执行
  */
 func (unc* Unicorn) doRequest() {
-    //Loop:
-    //一个无限循环，产生足够多的worker，保持concurrency
+    log.Logger.Info("doRequest ...")
+
+    //无限循环，保持足够多的worker，即维持concurrency数量的worker
     for {
-        //带default的select分支，不会阻塞，放在这里为了能够及时收到Stop信号，但感觉没太大必要
-        //select {
-        //case <- unc.sigChan:
-        //    unc.handleStopSign(call_cnt)
-        //    break Loop
-        //default:
-        //}
-
-        //异步发送请求（此处是有可能被阻塞住的--协程池的Take操作）
+        //产生worker，异步发送请求（此处是可能被阻塞--协程池的Take操作）
         unc.createWorker()
-
-        //因为新增了长连接模式，所以asyncSendRequest可能长时间不返回了（因为woker们会保持连接持续发送请求），所以下面的sigChan信号接收位置需要调整到worker内部
-        //阻塞等待节流阀throttle信号
-        //select {
-        //case <-unc.throttle:     //throttle用来控制发送频率，其实本身是空转一次不作实质事情，进入下次循环，发送请求
-        //case <-unc.sigChan:  //停止信号
-        //    unc.handleStopSign(call_cnt)
-        //    break Loop
-        //}
-
     }
+
+    //TODO 等待所有worker归还票？
+
+    unc.status = STOPPED
+    log.Logger.Info(fmt.Sprintf("Start go func ended. (callCount=%d)", unc.finalCnt))
 }
 
 //兜底的错误处理，以defer的形式存在
