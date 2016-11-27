@@ -83,14 +83,14 @@ func NewUnicorn(
         plugin     : plugin,
         timeout    : timeout,
         qps        : qps,
-        duration   : duration,
+        Duration   : duration,
         concurrency: c,
         sigChan    : make(chan byte, 1),
         stopFlag   : false,
         status     : ORIGINAL,
         resultChan : resultChan,
-        finalCnt   : 0,
-        ignoreCnt  : 0,
+        allCnt   : 0,
+        IgnoreCnt  : 0,
         pool       : pool,
         throttle   : throttle,
         keepalive  : keepalive,
@@ -105,7 +105,7 @@ func (unc *Unicorn)Start() *sync.WaitGroup{
     log.Logger.Info("Unicorn Start...")
 
     //停止定时器，当探测持续到了指定时间，停止unicorn
-    time.AfterFunc(unc.duration, func(){
+    time.AfterFunc(unc.Duration, func(){
         log.Logger.Info("Time's up. Sending Stop signal...")
         unc.sigChan <- 1
     })
@@ -136,7 +136,7 @@ func (unc *Unicorn) Stop() (uint64, bool){
 
     //call_count := <-unc.finalCnt
     //log.Logger.Info(fmt.Sprintf("Stop ended. (callCount=%d)", call_count))
-    return unc.finalCnt, true
+    return unc.AllCnt, true
 }
 
 //获得unicorn当前状态
@@ -168,7 +168,7 @@ func (unc* Unicorn) doRequest(wg *sync.WaitGroup) {
 
     unc.status = STOPPED
     close(unc.resultChan) //关闭结果接收通道
-    log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d, ignoreCnt=%d)", unc.finalCnt, unc.ignoreCnt))
+    log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d, ignoreCnt=%d)", unc.AllCnt, unc.IgnoreCnt))
     wg.Done()
 }
 

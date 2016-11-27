@@ -45,46 +45,24 @@ func checkParams(q int64, c int64) bool{
 }
 
 //打印测试报告
-func showReport() {
-
-    //打印汇总结果
-    var total int
-    t.Log("Code Count:")
-    for k, v := range count_map {
-        code_plain := unicorn.ConvertCodePlain(k)
-        t.Logf("  Code plain: %s (%d), Count: %d.\n", code_plain, k, v)
-        total += v
-    }
+func showReport(count_map map[unicorn.ResultCode]int, unc unicorn.Unicorn) {
+    success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
+    tps := float64(success_cnt) / float64(unc.Duration/time.Second)
 
     //打印最终结果
-    t.Logf("Total cnt: %d.\n", cnt)
-    t.Logf("Total load: %d.\n", total)
-    success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
-    tps := float64(success_cnt) / float64(duration/time.Second)
-    t.Logf("Qps: %d; Tps(Treatments per second): %f.\n", qps, tps)
+    fmt.Println("All     requests:", unc.AllCnt)
+    fmt.Println("Success requests:", success_cnt)
+    fmt.Println("Ignore  requests:", unc.IgnoreCnt)
+    fmt.Println("Average TPS     :", tps)
+    fmt.Println("Time    Duration:", unc.Duration, "S")
+    fmt.Println()
 
-    /*
-    float qps;
-    char buf[11]; int idx=0, r; memset(buf, ' ', 11);
-
-    qps = (float)g_conf.requests_done / ((float)g_conf.total_latency / 1000);
-    r = (int)qps;
-
-    fprintf(stdout, "============== %s REPORT ==============\n", g_conf.title);
-    fprintf(stdout, "*   All requests           : %-10d               *\n", g_conf.requests);
-    fprintf(stdout, "*   All requests sended    : %-10d               *\n", g_conf.requests_sended);
-    fprintf(stdout, "*   All requests completed : %-10d               *\n", g_conf.requests_done);
-    //如果done_if_srv_close，则done和finished相同，所以只有非done_if_srv_close时打印
-    if(!g_conf.done_if_srv_close) fprintf(stdout, "*   All requests finished  : %-10d               *\n", g_conf.requests_finished);
-    fprintf(stdout, "*   Use time of seconds    : %-10.2f               *\n", (float)g_conf.total_latency/1000);
-    fprintf(stdout, "*   Parallel clients       : %-10d               *\n", g_conf.num_clients);
-    fprintf(stdout, "*   Keep alive             : %-10d               *\n", g_conf.keep_alive);
-    fprintf(stdout, "*                                                     *\n");
-    fprintf(stdout, "*   Complete rate          : %-6.2f %%                 *\n", 100*((float)g_conf.requests_done/(float)g_conf.requests));
-    while(r>0) { idx++; r /= 10; } idx = 10-idx; buf[idx] = '\0'; //计算最后一行对齐
-    fprintf(stdout, "*   Average QPS            : %.2f r/s        %s*\n", qps, buf);
-
-    */
+    //打印详细结果
+    fmt.Println("Detail infomation:")
+    for _, v := range count_map {
+        code_plain := unicorn.ConvertCodePlain(k)
+        fmt.Printf("  Code plain: %s, Count: %d.\n", code_plain, v)
+    }
 }
 
 func main() {
@@ -133,5 +111,10 @@ func main() {
         }
     }
 
+    //等着最终结束
     wg.Wait()
+
+    //打印测试报告
+    u := unicorn.Unicorn(unc)
+    showReport(count_map, u)
 }

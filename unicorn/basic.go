@@ -17,21 +17,21 @@ type UnicornIntfs interface {
 
 //Unicorn接口的实现类型
 type Unicorn struct {
-    serverAdd     string             //服务端地址
-    qps           uint32             //每秒的请求量，这个值和下面concurrency不同时设置，因为会存在一定的矛盾
-    concurrency   uint32             //并发量，这个值不能喝qps同时设置，可以用户指定，或者根据timeout和qps算出来
-    timeout       time.Duration      //规定的每个请求最大延迟
-    duration      time.Duration      //持续探测访问持续时间
-    sigChan       chan byte          //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
-    status        UncStatus          //当前状态
-    resultChan    chan *CallResult   //保存调用结果的通道
-    plugin        PluginIntfs        //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
-    pool          wp.WorkerPoolIntfs //goroutine协程池，控制并发量
-    stopFlag      bool               //停止发送后续结果的标记。
-    finalCnt      uint64             //最终总的调用计数
-    ignoreCnt     uint64             //最终总的调用计数
-    throttle      <-chan time.Time   //断续器（time.Tick），用来控制请求的频率，如果设置了qps，则断续器有效非空
-    keepalive     bool               //是否维持长连接模式
+    serverAdd   string             //服务端地址
+    qps         uint32             //每秒的请求量，这个值和下面concurrency不同时设置，因为会存在一定的矛盾
+    concurrency uint32             //并发量，这个值不能喝qps同时设置，可以用户指定，或者根据timeout和qps算出来
+    timeout     time.Duration      //规定的每个请求最大延迟
+    Duration    time.Duration      //持续探测访问持续时间
+    sigChan     chan byte          //信号指令接收通道，Unicorn通过这个通道接收指令，比如Stop指令
+    status      UncStatus          //当前状态
+    resultChan  chan *CallResult   //保存调用结果的通道
+    plugin      PluginIntfs        //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
+    pool        wp.WorkerPoolIntfs //goroutine协程池，控制并发量
+    stopFlag    bool               //停止发送后续结果的标记。
+    AllCnt      uint64             //最终总的调用的计数
+    IgnoreCnt   uint64             //忽略掉的请求的计数
+    throttle    <-chan time.Time   //断续器（time.Tick），用来控制请求的频率，如果设置了qps，则断续器有效非空
+    keepalive   bool               //是否维持长连接模式
 }
 
 //原生request的结构。本质上就是字节流
