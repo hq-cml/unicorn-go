@@ -42,8 +42,12 @@ func TestStart(t *testing.T) {
     duration := 1 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
 
+    //qps和concurrency：四种组合关系
+    unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, false, result_chan)
     //unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, true, result_chan)
-    unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 50, true, result_chan)
+    //unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 50, false, result_chan)
+    //unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 50, true, result_chan)
+
     if err != nil {
         t.Fatalf("Unicorn initialization failing: %s.\n",  err)
         t.FailNow()
