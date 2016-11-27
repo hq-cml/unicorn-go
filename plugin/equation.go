@@ -14,6 +14,8 @@ import (
     //"bufio"
     "math/rand"
     //"strconv"
+    "bytes"
+    "strconv"
 )
 
 const (
@@ -174,3 +176,23 @@ func op(operands []int, operator string) int {
     return result
 }
 
+func genFormula(operands []int, operator string, result int, equal bool) string {
+    var buff bytes.Buffer
+    n := len(operands)
+    for i := 0; i < n; i++ {
+        if i > 0 {
+            buff.WriteString(" ")
+            buff.WriteString(operator)
+            buff.WriteString(" ")
+        }
+
+        buff.WriteString(strconv.Itoa(operands[i]))
+    }
+    if equal {
+        buff.WriteString(" = ")
+    } else {
+        buff.WriteString(" != ")
+    }
+    buff.WriteString(strconv.Itoa(result))
+    return buff.String()
+}

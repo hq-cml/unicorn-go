@@ -77,7 +77,7 @@ func (unc *Unicorn) createWorker() {
             //检查停止信号（default--非阻塞式检查）
             select {
             case <-unc.sigChan:  //停止信号
-                fmt.Println("Recv stop sig")
+                //fmt.Println("Recv stop sig")
                 unc.handleStopSign()
             default:
             }

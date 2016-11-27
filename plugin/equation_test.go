@@ -12,7 +12,6 @@ import (
     "errors"
     "bufio"
     "bytes"
-    "strconv"
 )
 
 var printDetail = true
@@ -154,6 +153,24 @@ func TestStop(t *testing.T) {
     wg.Wait()
 }
 
+//仅仅启动一个Server，供测试unicorn main
+func TestServer(t *testing.T) {
+    runtime.GOMAXPROCS(runtime.NumCPU())
+
+    //初始化Server
+    server := NewTcpServer()
+    defer server.Close() //注册关闭
+    addr := "127.0.0.1:9527"
+    t.Logf("Startup Tcp Server(%s)..\n", addr)
+    err := server.Listen(addr)
+    if err != nil {
+        t.Fatalf("TCP Server startup failing! (addr=%s)!\n", addr)
+        t.FailNow() //结束！
+    }
+
+    time.Sleep(1*time.Hour)
+}
+
 /**************************配套服务端的逻辑********************/
 type TcpServer struct {
     listener net.Listener
@@ -252,27 +269,6 @@ func reqHandler(conn net.Conn) {
     }
 
     //conn.Close() //短连接
-}
-
-func genFormula(operands []int, operator string, result int, equal bool) string {
-    var buff bytes.Buffer
-    n := len(operands)
-    for i := 0; i < n; i++ {
-        if i > 0 {
-            buff.WriteString(" ")
-            buff.WriteString(operator)
-            buff.WriteString(" ")
-        }
-
-        buff.WriteString(strconv.Itoa(operands[i]))
-    }
-    if equal {
-        buff.WriteString(" = ")
-    } else {
-        buff.WriteString(" != ")
-    }
-    buff.WriteString(strconv.Itoa(result))
-    return buff.String()
 }
 
 func write(conn net.Conn, content []byte, delim byte) (int, error) {

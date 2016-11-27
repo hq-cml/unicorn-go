@@ -89,7 +89,7 @@ func NewUnicorn(
         stopFlag   : false,
         status     : ORIGINAL,
         resultChan : resultChan,
-        allCnt   : 0,
+        AllCnt   : 0,
         IgnoreCnt  : 0,
         pool       : pool,
         throttle   : throttle,
@@ -99,7 +99,7 @@ func NewUnicorn(
     return unc, nil
 }
 
-/******************** Unicorn实现Unicorn接口 *******************/
+/******************** *Unicorn实现Unicorn接口 *******************/
 //启动
 func (unc *Unicorn)Start() *sync.WaitGroup{
     log.Logger.Info("Unicorn Start...")
