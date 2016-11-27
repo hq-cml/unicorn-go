@@ -27,6 +27,6 @@ func (MyLogger) Fatal(str interface{}){
 var Logger MyLogger
 
 func init() {
-    fmt.Println("Init log success")
+    //fmt.Println("Init log success")
     Logger = MyLogger{}
 }

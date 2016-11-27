@@ -6,34 +6,53 @@ import (
     "runtime"
     "flag"
     "fmt"
-    //"errors"
+    "github.com/hq-cml/unicorn-go/log"
 )
 
 var ip *string = flag.String("h", "127.0.0.1", "ip")
 var port *string = flag.String("p", "9527", "port")
-var mode *int = flag.Int("a", 0, "AI")                  //0-手动模式 1-AI自动模式
+var c *int = flag.Int("c", 1, "concurrency")
+var q *int = flag.Int("q", 10, "qps")
+var D *int = flag.Int("D", 5, "port")
+var k *bool = flag.Bool("k", true, "keep alive")
+var H *bool = flag.Bool("H", false, "help")
 
 func showUseage() {
     fmt.Println()
-    fmt.Println("Usage: ./Unicorn [-h <ip>] [-p <port>] [-c <concurrency>] [-D duration]> [-k <boolean>]");
-    fmt.Println("Note: !!!!- The argu 'c' and 'q' can not set at the same time -!!!!");
+    fmt.Println("Usage: unicorn [-h <ip>] [-p <port>] [-c <concurrency>] [-D duration]> [-k <boolean>]");
+    fmt.Println("Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!");
     fmt.Println()
     fmt.Println(" -h <hostname>      server hostname (default 127.0.0.1)");
     fmt.Println(" -p <port>          server port (default 9527)");
     fmt.Println(" -c <concurrency>   number of parallel connections (default 1)");
     fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests (default 10)");
-    fmt.Println(" -D <duration>      total duration of requests (default 5s)");
-    fmt.Println(" -k <boolean>       1 = keep alive, 0 = reconnect (default 1)");
+    fmt.Println(" -D <duration>      test time duration for requests (default 5s)");
+    fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default true)");
     fmt.Println(" -H                 show help information\n");
 }
 
-func checkParams() {
-
+func checkParams(q int64, c int64) bool{
+    if (q != 0 && c != 0) || (q == 0 && c == 0) {
+        //qps和concurrency不能同时为0，或者同时不为0
+        log.Logger.Fatal("The argu 'c' and 'q' can't be set at the same time -!\n\nRun the cmd: 'unicorn -H' for help!")
+        return false
+    }
+    return true
 }
 
 func main() {
     runtime.GOMAXPROCS(runtime.NumCPU())
-    showUseage()
+    //解析参数
+    flag.Parse()
+    if *H  {
+        showUseage()
+        return
+    }
+
+    if !checkParams(int64(*q), int64(*c)) {
+        return
+    }
+
     //提示输出
     //fmt.Println(`
     //Enter following commands to control:
