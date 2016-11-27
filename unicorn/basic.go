@@ -5,13 +5,14 @@ package unicorn
 import (
     "time"
     wp "github.com/hq-cml/unicorn-go/worker-pool"
+    "sync"
 )
 
 //Unicorn接口
 type UnicornIntfs interface {
-    Start()                //启动unicorn
-    Stop() (uint64, bool)  //第一个返回值表示停止时已完成请求数，第二个返回值表示是否成功停止
-    Status() UncStatus     //获得unicorn当前状态
+    Start() *sync.WaitGroup  //启动unicorn
+    Stop() (uint64, bool)    //第一个返回值表示停止时已完成请求数，第二个返回值表示是否成功停止
+    Status() UncStatus       //获得unicorn当前状态
 }
 
 //Unicorn接口的实现类型

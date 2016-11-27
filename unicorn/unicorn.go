@@ -7,6 +7,7 @@ import (
     "fmt"
     "time"
     "errors"
+    "sync"
 )
 
 /*
@@ -88,7 +89,6 @@ func NewUnicorn(
         stopFlag   : false,
         status     : ORIGINAL,
         resultChan : resultChan,
-        //finalCnt : make(chan uint64, 2),
         finalCnt   : 0,
         pool       : pool,
         throttle   : throttle,
@@ -100,7 +100,7 @@ func NewUnicorn(
 
 /******************** Unicorn实现Unicorn接口 *******************/
 //启动
-func (unc *Unicorn)Start() {
+func (unc *Unicorn)Start() *sync.WaitGroup{
     log.Logger.Info("Unicorn Start...")
 
     //停止定时器，当探测持续到了指定时间，停止unicorn
@@ -112,9 +112,14 @@ func (unc *Unicorn)Start() {
     //启动状态
     unc.status = STARTED
 
+    var wg sync.WaitGroup
+    wg.Add(1)
+
     //因为Start属于主goroutine，不应该有被阻塞住的可能性。主goroutine是应该最外层起到整体管理的作用。
     //而doRequest是存在被阻塞住的可能性的，即协程池的Take操作，所以启动独立的goroutine
-    go unc.doRequest()
+    go unc.doRequest(&wg)
+
+    return &wg
 }
 
 //停止，返回值表示停止时已完成请求数和否成功停止
@@ -141,15 +146,17 @@ func (unc *Unicorn) Status() UncStatus {
 /*
  * 发送请求的总控制逻辑，放置在独立的goroutine中执行
  */
-func (unc* Unicorn) doRequest() {
+func (unc* Unicorn) doRequest(wg *sync.WaitGroup) {
     log.Logger.Info("doRequest ...")
 
     //无限循环，保持足够多的worker，即维持concurrency数量的worker
     for {
+        if unc.stopFlag {
+            break
+        }
         //产生worker，异步发送请求（此处是可能被阻塞--协程池的Take操作）
         unc.createWorker()
     }
-
     //等待所有worker归还票
     for {
         if unc.pool.Remainder() == unc.concurrency {
@@ -159,8 +166,8 @@ func (unc* Unicorn) doRequest() {
     }
 
     unc.status = STOPPED
-    //TODO 这里有问题，打印不出来，得查出为什么
     log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d)", unc.finalCnt))
+    wg.Done()
 }
 
 /*

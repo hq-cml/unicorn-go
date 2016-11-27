@@ -37,9 +37,9 @@ func TestStart(t *testing.T) {
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 50)
-    timeout := 50*time.Millisecond
+    timeout := 20*time.Millisecond
     qps := uint32(1000)
-    duration := 5 * time.Second
+    duration := 1 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
 
     unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, true, result_chan)
@@ -51,7 +51,7 @@ func TestStart(t *testing.T) {
 
     //开始干活儿! Start可以立刻返回的，进去看就知道~
     t.Log("Start Unicorn...")
-    unc.Start()
+    wg := unc.Start()
 
     //主流程在外面做一些总体控制工作，比如，循环阻塞接收结果~
     count_map := make(map[unicorn.ResultCode]int) //将结果按Code分类收集
@@ -77,6 +77,8 @@ func TestStart(t *testing.T) {
     success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
     tps := float64(success_cnt) / float64(duration/time.Second)
     t.Logf("Qps: %d; Tps(Treatments per second): %f.\n", qps, tps)
+
+    wg.Wait()
 }
 
 //测试手动停止
@@ -208,33 +210,39 @@ func (self *TcpServer) Close() bool {
 func reqHandler(conn net.Conn) {
     var errMsg string
     var sresp ServerEquationResp
-    req, err := read(conn, DELIM)
-    //fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:", string(req))
-    if err != nil {
-        errMsg = fmt.Sprintf("Server: Req Read Error: %s", err)
-    } else {
-        var sreq ServerEquationReq
-        err := json.Unmarshal(req, &sreq)
+
+    for{
+        req, err := read(conn, DELIM)
+        //fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:", string(req))
         if err != nil {
-            errMsg = fmt.Sprintf("Server: Req Unmarshal Error: %s", err)
+            errMsg = fmt.Sprintf("Server: Req Read Error: %s", err)
+            conn.Close() //短连接
+            return
         } else {
-            sresp.Id = sreq.Id
-            sresp.Result = op(sreq.Operands, sreq.Operator)
-            sresp.Formula = genFormula(sreq.Operands, sreq.Operator, sresp.Result, true)
+            var sreq ServerEquationReq
+            err := json.Unmarshal(req, &sreq)
+            if err != nil {
+                errMsg = fmt.Sprintf("Server: Req Unmarshal Error: %s", err)
+            } else {
+                sresp.Id = sreq.Id
+                sresp.Result = op(sreq.Operands, sreq.Operator)
+                sresp.Formula = genFormula(sreq.Operands, sreq.Operator, sresp.Result, true)
+            }
+        }
+        if errMsg != "" {
+            sresp.Err = errors.New(errMsg)
+        }
+        bytes, err := json.Marshal(sresp)
+        //fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:", string(bytes))
+        if err != nil {
+            fmt.Errorf("Server: Resp Marshal Error: %s", err)
+        }
+        _, err = write(conn, bytes, DELIM)
+        if err != nil {
+            fmt.Errorf("Server: Resp Write error: %s", err)
         }
     }
-    if errMsg != "" {
-        sresp.Err = errors.New(errMsg)
-    }
-    bytes, err := json.Marshal(sresp)
-    //fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:", string(bytes))
-    if err != nil {
-        fmt.Errorf("Server: Resp Marshal Error: %s", err)
-    }
-    _, err = write(conn, bytes, DELIM)
-    if err != nil {
-        fmt.Errorf("Server: Resp Write error: %s", err)
-    }
+
     //conn.Close() //短连接
 }
 

@@ -77,6 +77,7 @@ func (unc *Unicorn) createWorker() {
             //检查停止信号（default--非阻塞式检查）
             select {
             case <-unc.sigChan:  //停止信号
+                fmt.Println("Recv stop sig")
                 unc.handleStopSign()
             default:
             }
@@ -87,7 +88,6 @@ func (unc *Unicorn) createWorker() {
                 case <-unc.throttle: //throttle用来控制发送频率，其实本身是空转一次不作实质事情
                 }
             }
-
             //如果程序停止，则退出
             if unc.stopFlag {
                 return
@@ -126,6 +126,7 @@ func (unc *Unicorn) createWorker() {
                     //Req    : raw_request,
                     Code   : RESULT_CODE_WARING_TIMEOUT,
                     Msg    : fmt.Sprintf("Timeout! (expected: < %v)", unc.timeout),
+                    Elapse : time.Duration(end - start),
                 }
             } else {
                 timer.Stop() //!!立刻停止异步定时器
@@ -139,6 +140,7 @@ func (unc *Unicorn) createWorker() {
             if !unc.keepalive {
                 break
             }
+            //fmt.Println("Go on")
         }
     }()
 }
@@ -154,13 +156,11 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
         return nil, err
     }
     _ = n
-    //fmt.Println("Sended:", n, string(raw_request.Req))
 
     data := make([]byte, 0)
     Loop:
     for {
         buf, n, err := recvResponse(conn)
-        //fmt.Println("Recv:", string(buf))
         if err != nil && err != io.EOF {
             return nil, err
         } else if err == io.EOF {
@@ -171,13 +171,10 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
             data = append(data, buf[0:n]...)
             switch unc.plugin.CheckFull(raw_request.Id, data) {
             case SER_OK:
-                //fmt.Println("OK")
                 break Loop
             case SER_NEEDMORE:
-                //fmt.Println("NEED MORE")
                 continue Loop
             default:
-                //fmt.Println("Wrong")
                 err = errors.New("Sth Wrong!")
                 break Loop
             }
@@ -201,6 +198,7 @@ func sendRequest(conn net.Conn, content []byte) (int, error) {
 //接收请求
 func recvResponse(conn net.Conn) ([]byte, int, error) {
     buf := make([]byte, 1024)
+
     n, err := conn.Read(buf)
     if err != nil {
         return nil, 0, err
