@@ -42,8 +42,8 @@ func TestStart(t *testing.T) {
     duration := 1 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
 
-    unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, true, result_chan)
-    //unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 20, false, result_chan)
+    //unc, err := unicorn.NewUnicorn(addr, tep, timeout, qps, duration, 0, true, result_chan)
+    unc, err := unicorn.NewUnicorn(addr, tep, timeout, 0, duration, 50, true, result_chan)
     if err != nil {
         t.Fatalf("Unicorn initialization failing: %s.\n",  err)
         t.FailNow()
@@ -55,7 +55,9 @@ func TestStart(t *testing.T) {
 
     //主流程在外面做一些总体控制工作，比如，循环阻塞接收结果~
     count_map := make(map[unicorn.ResultCode]int) //将结果按Code分类收集
+    cnt := 0
     for ret := range result_chan {
+        cnt ++
         count_map[ret.Code] ++
         if printDetail && ret.Code != unicorn.RESULT_CODE_SUCCESS{
             time := fmt.Sprintf(time.Now().Format("15:04:05"))
@@ -73,6 +75,7 @@ func TestStart(t *testing.T) {
     }
 
     //打印最终结果
+    t.Logf("Total cnt: %d.\n", cnt)
     t.Logf("Total load: %d.\n", total)
     success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
     tps := float64(success_cnt) / float64(duration/time.Second)
@@ -105,7 +108,7 @@ func TestStop(t *testing.T) {
     qps := uint32(10)
     duration := 10 * time.Second
     t.Logf("Initialize Unicorn (timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration)
-    unc, err := unicorn.NewUnicorn(addr, plugin_tep, timeout, qps, duration, 0, false, result_chan)
+    unc, err := unicorn.NewUnicorn(addr, plugin_tep, timeout, qps, duration, 0, true, result_chan)
     if err != nil {
         t.Fatalf("Unicorn initialization failing: %s.\n",  err)
         t.FailNow()
@@ -113,7 +116,7 @@ func TestStop(t *testing.T) {
 
     //开始干活儿! Start可以立刻返回的，进去看就知道~
     t.Log("Start Unicorn...")
-    unc.Start()
+    wg := unc.Start()
 
     //主流程在外面等待着结果接收，循环阻塞接收结果~
     //利用count，在4次之后，手动显式停止Unicorn
@@ -144,6 +147,7 @@ func TestStop(t *testing.T) {
     success_cnt := count_map[unicorn.RESULT_CODE_SUCCESS]
     tps := float64(success_cnt) / float64(duration/time.Second)
     t.Logf("Qps: %d; Tps(Treatments per second): %f.\n", qps, tps)
+    wg.Wait()
 }
 
 /**************************配套服务端的逻辑********************/

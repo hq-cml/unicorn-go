@@ -90,6 +90,7 @@ func NewUnicorn(
         status     : ORIGINAL,
         resultChan : resultChan,
         finalCnt   : 0,
+        ignoreCnt  : 0,
         pool       : pool,
         throttle   : throttle,
         keepalive  : keepalive,
@@ -166,7 +167,8 @@ func (unc* Unicorn) doRequest(wg *sync.WaitGroup) {
     }
 
     unc.status = STOPPED
-    log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d)", unc.finalCnt))
+    close(unc.resultChan) //关闭结果接收通道
+    log.Logger.Info(fmt.Sprintf("doRequest ended. (callCount=%d, ignoreCnt=%d)", unc.finalCnt, unc.ignoreCnt))
     wg.Done()
 }
 

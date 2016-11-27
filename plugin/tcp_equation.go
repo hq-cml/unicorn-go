@@ -58,7 +58,7 @@ func (tep *TcpEquationPlugin) GenRequest(id int64) unicorn.RawRequest {
     return raw_reqest
 }
 
-func (tep *TcpEquationPlugin)CheckFull(id int64, response []byte)(unicorn.ServerRespStatus) {
+func (tep *TcpEquationPlugin)CheckFull(rawReq *unicorn.RawRequest, response []byte)(unicorn.ServerRespStatus) {
     //校验response
     var sresp ServerEquationResp
 
@@ -67,11 +67,10 @@ func (tep *TcpEquationPlugin)CheckFull(id int64, response []byte)(unicorn.Server
     if response[l-1] == DELIM {
         err := json.Unmarshal(response[:l-1], &sresp)
         if err != nil {
-            fmt.Println("AAAA")
             return unicorn.SER_NEEDMORE
         }
 
-        if sresp.Id != id {
+        if sresp.Id != rawReq.Id {
             return unicorn.SER_ERROR
         }
     } else {

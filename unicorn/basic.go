@@ -28,11 +28,10 @@ type Unicorn struct {
     plugin        PluginIntfs        //插件接口，提供扩展功能，用户实现Plugin接口，嵌入Unicorn框架即可实现自己的client
     pool          wp.WorkerPoolIntfs //goroutine协程池，控制并发量
     stopFlag      bool               //停止发送后续结果的标记。
-    //finalCnt      chan uint64      //完结信号的传递通道，同时被用于传递调用执行计数。感觉这样的设计完全没必要
-    finalCnt      uint64             //最终调用计数
+    finalCnt      uint64             //最终总的调用计数
+    ignoreCnt     uint64             //最终总的调用计数
     throttle      <-chan time.Time   //断续器（time.Tick），用来控制请求的频率，如果设置了qps，则断续器有效非空
     keepalive     bool               //是否维持长连接模式
-    //locker TODO
 }
 
 //原生request的结构。本质上就是字节流
@@ -91,7 +90,7 @@ type PluginIntfs interface {
     //必选函数：生成请求内容
     GenRequest(id int64) RawRequest
     //必选函数：判断接收到的内容，是否是完整的响应包
-    CheckFull(id int64, response []byte)(ServerRespStatus)
+    CheckFull(rawReq *RawRequest, response []byte)(ServerRespStatus)
     //必选函数：检查响应内容是否符合用户需求
     CheckResponse(rawReq RawRequest, response []byte) *CallResult
 }

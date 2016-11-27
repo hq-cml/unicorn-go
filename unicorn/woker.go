@@ -169,7 +169,7 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
             return nil, err
         } else {
             data = append(data, buf[0:n]...)
-            switch unc.plugin.CheckFull(raw_request.Id, data) {
+            switch unc.plugin.CheckFull(raw_request, data) {
             case SER_OK:
                 break Loop
             case SER_NEEDMORE:
@@ -209,12 +209,13 @@ func recvResponse(conn net.Conn) ([]byte, int, error) {
 
 //保存结果:将结果存入通道
 func (unc *Unicorn) saveResult(result *CallResult) bool {
-    if unc.status == STARTED && unc.stopFlag == false {
-        unc.resultChan <- result
-        return true
+    if unc.status == STOPPED && unc.stopFlag {
+        unc.ignoreCnt++
+        log.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
+        return false
     }
-    log.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
-    return false
+    unc.resultChan <- result
+    return true
 }
 
 //处理停止“信号”
@@ -222,12 +223,7 @@ func (unc * Unicorn) handleStopSign() {
     //信号标记变为1
     unc.stopFlag = true
     log.Logger.Info("handleStopSign. Closing result chan...")
-    //关闭结果存储通道
-    close(unc.resultChan)
 
-    //unc.finalCnt <- call_cnt
-    ////为什么需要两次写入通道呢
-    ////因为Start方法和Stop方法，均存在从finalCnt接收的情况，所以如果两个同时发生，会造成其中一个阻塞
-    ////所以，索性写入两次，保证Start和Stop均不会阻塞！
-    //unc.finalCnt <- call_cnt
+    //关闭结果存储通道 -- 这个地方关闭不合理，应该放在外部统一关闭
+    //close(unc.resultChan)
 }
