@@ -58,6 +58,10 @@ func (unc *Unicorn) createWorker() {
         //注册defer：归还票，多个defer会逆序执行
         defer unc.returnTicket()
 
+        //检查停止信号（非阻塞式检查）
+        //这个地方和下面的地方均有必要。如果服务器未启动，无法走入下面的循环探测，此外短连接模式也会用到此处（更加及时）
+        unc.checkSigStopNonBlock()
+
         //如果程序停止，则退出
         if unc.stopFlag {
             return
@@ -74,13 +78,8 @@ func (unc *Unicorn) createWorker() {
 
         //开启探测
         for {
-            //检查停止信号（default--非阻塞式检查）
-            select {
-            case <-unc.sigChan:  //停止信号
-                //fmt.Println("Recv stop sig")
-                unc.handleStopSign()
-            default:
-            }
+            //检查停止信号（非阻塞式检查），此处的检测和上面的均存在必要，长连接模式会更多使用这里
+            unc.checkSigStopNonBlock()
 
             //如果节流阀非空（说明初始设置了qps），则利用节流阀进行频率控制（阻塞式等待）
             if unc.throttle != nil {
@@ -105,6 +104,7 @@ func (unc *Unicorn) createWorker() {
 
             //同步交互：发送请求+接收响应
             start := time.Now().Nanosecond()
+            fmt.Println("Fuck1")
             data, err := unc.interact(&raw_request, conn)
             end := time.Now().Nanosecond()
 
@@ -143,6 +143,19 @@ func (unc *Unicorn) createWorker() {
             //fmt.Println("Go on")
         }
     }()
+}
+
+//非阻塞的检测是否存在停止信号
+func (unc *Unicorn)checkSigStopNonBlock(){
+    //检查停止信号（default--非阻塞式检查）
+    select {
+    case <-unc.sigChan:
+        unc.stopFlag = true //信号标记变为true
+        log.Logger.Info("handleStopSign. Closing result chan...")
+        //关闭结果存储通道 -- 这个地方关闭不合理，应该放在外部统一关闭
+        //close(unc.resultChan)
+    default:
+    }
 }
 
 //实际的交互逻辑
@@ -185,12 +198,15 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
 
 //请求发送
 func sendRequest(conn net.Conn, content []byte) (int, error) {
+    fmt.Println("Write")
     //利用带缓冲的Writer
     writer := bufio.NewWriter(conn)
     n, err := writer.Write(content) //Write内部可以保证content全部内容写入到了缓冲
 
     if err == nil {
         err = writer.Flush() //将缓冲刷向网络
+    }else {
+        fmt.Println("Fuck")
     }
     return n, err
 }
@@ -218,12 +234,3 @@ func (unc *Unicorn) saveResult(result *CallResult) bool {
     return true
 }
 
-//处理停止“信号”
-func (unc * Unicorn) handleStopSign() {
-    //信号标记变为1
-    unc.stopFlag = true
-    log.Logger.Info("handleStopSign. Closing result chan...")
-
-    //关闭结果存储通道 -- 这个地方关闭不合理，应该放在外部统一关闭
-    //close(unc.resultChan)
-}
