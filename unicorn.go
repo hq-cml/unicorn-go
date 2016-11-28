@@ -12,8 +12,8 @@ import (
 
 var ip *string = flag.String("h", "127.0.0.1", "ip")
 var port *string = flag.String("p", "9527", "port")
-var c *int = flag.Int("c", 1, "concurrency")
-var q *int = flag.Int("q", 10, "qps")
+var c *int = flag.Int("c", 0, "concurrency")
+var q *int = flag.Int("q", 0, "qps")
 var t *int64 = flag.Int64("t", 50, "timeout")
 var D *int64 = flag.Int64("D", 5, "port")
 var k *bool = flag.Bool("k", true, "keep alive")
@@ -22,13 +22,14 @@ var v *bool = flag.Bool("v", false, "verbose")
 
 func showUseage() {
     fmt.Println()
-    fmt.Println("Usage: unicorn [-h <ip>] [-p <port>] [-c <concurrency>] [-D duration]> [-k <boolean>]");
+    fmt.Println("Usage: unicorn -c <concurrency>|-q <qps> [-h <ip>] [-p <port>] [-D <duration>] [-k <boolean>]");
+    fmt.Println()
     fmt.Println("Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!");
     fmt.Println()
     fmt.Println(" -h <hostname>      server hostname (default 127.0.0.1)");
     fmt.Println(" -p <port>          server port (default 9527)");
-    fmt.Println(" -c <concurrency>   number of parallel connections (default 1)");
-    fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests (default 10)");
+    fmt.Println(" -c <concurrency>   number of parallel connections");
+    fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests");
     fmt.Println(" -t <timeout>       time out of per request (default 50 ms)");
     fmt.Println(" -D <duration>      test time duration for requests (default 5s)");
     fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default true)");
@@ -50,11 +51,13 @@ func showReport(count_map map[unicorn.ResultCode]int, unc *unicorn.Unicorn) {
     tps := float64(success_cnt) / float64(unc.Duration/time.Second)
 
     //打印最终结果
+    fmt.Println()
+    fmt.Println()
     fmt.Println("All     requests:", unc.AllCnt)
     fmt.Println("Success requests:", success_cnt)
     fmt.Println("Ignore  requests:", unc.IgnoreCnt)
     fmt.Println("Average TPS     :", tps)
-    fmt.Println("Time    Duration:", unc.Duration, "S")
+    fmt.Println("Time    Duration:", unc.Duration)
     fmt.Println()
 
     //打印详细结果
@@ -98,7 +101,12 @@ func main() {
     }
 
     //开始干活儿! Start可以立刻返回的，进去看就知道~
-    log.Logger.Info(fmt.Sprintf("Unicorn Start(timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration))
+    if qps != 0 {
+        log.Logger.Info(fmt.Sprintf("Unicorn Start(timeout=%v, qps=%d, duration=%v)...", timeout, qps, duration))
+    } else {
+        log.Logger.Info(fmt.Sprintf("Unicorn Start(timeout=%v, concurrency=%d, duration=%v)...", timeout, concurrency, duration))
+    }
+
     wg := unc.Start()
 
     //主流程在外面做一些总体控制工作，比如，循环阻塞接收结果~

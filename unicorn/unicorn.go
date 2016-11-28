@@ -102,8 +102,6 @@ func NewUnicorn(
 /******************** *Unicorn实现Unicorn接口 *******************/
 //启动
 func (unc *Unicorn)Start() *sync.WaitGroup{
-    log.Logger.Info("Unicorn Start...")
-
     //停止定时器，当探测持续到了指定时间，停止unicorn
     time.AfterFunc(unc.Duration, func(){
         log.Logger.Info("Time's up. Sending Stop signal...")

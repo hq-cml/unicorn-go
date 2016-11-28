@@ -104,7 +104,6 @@ func (unc *Unicorn) createWorker() {
 
             //同步交互：发送请求+接收响应
             start := time.Now().Nanosecond()
-            fmt.Println("Fuck1")
             data, err := unc.interact(&raw_request, conn)
             end := time.Now().Nanosecond()
 
@@ -198,15 +197,12 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
 
 //请求发送
 func sendRequest(conn net.Conn, content []byte) (int, error) {
-    fmt.Println("Write")
     //利用带缓冲的Writer
     writer := bufio.NewWriter(conn)
     n, err := writer.Write(content) //Write内部可以保证content全部内容写入到了缓冲
 
     if err == nil {
         err = writer.Flush() //将缓冲刷向网络
-    }else {
-        fmt.Println("Fuck")
     }
     return n, err
 }
