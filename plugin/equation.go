@@ -83,53 +83,51 @@ func (tep *TcpEquationPlugin)CheckFull(rawReq *unicorn.RawRequest, response []by
     return unicorn.SER_OK
 }
 
-func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) *unicorn.CallResult {
-    var result unicorn.CallResult
-
+func (tep *TcpEquationPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) (code unicorn.ResultCode, msg string) {
     //校验request
     var sreq ServerEquationReq
     err := json.Unmarshal(raw_req.Req, &sreq)
     if err != nil {
-        result.Code = unicorn.RESULT_CODE_FATAL_CALL
-        result.Msg = fmt.Sprintf("Incorrectly formatted Req: %s!\n", string(raw_req.Req))
-        return &result
+        code = unicorn.RESULT_CODE_FATAL_CALL
+        msg = fmt.Sprintf("Incorrectly formatted Req: %s!\n", string(raw_req.Req))
+        return
     }
 
     //校验response
     var sresp ServerEquationResp
     err = json.Unmarshal(response, &sresp)
     if err != nil {
-        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(response))
-        return &result
+        code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(response))
+        return
     }
 
     //校验id是否一致
     if sresp.Id != sreq.Id {
-        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Inconsistent raw id! (%d != %d)\n", sresp.Id ,sreq.Id)
-        return &result
+        code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        msg = fmt.Sprintf("Inconsistent raw id! (%d != %d)\n", sresp.Id ,sreq.Id)
+        return
     }
 
     //校验response的Err
     if sresp.Err != nil {
-        result.Code = unicorn.RESULT_CODE_ERROR_CALEE
-        result.Msg = fmt.Sprintf("Abnormal server: %s!\n", sresp.Err)
-        return &result
+        code = unicorn.RESULT_CODE_ERROR_CALEE
+        msg = fmt.Sprintf("Abnormal server: %s!\n", sresp.Err)
+        return
     }
 
     //校验最终计算结果是否一致
     if sresp.Result != op(sreq.Operands, sreq.Operator) {
-        result.Code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        result.Msg = fmt.Sprintf("Incorrect result: %s!\n", genFormula(sreq.Operands, sreq.Operator, sresp.Result, false))
-        return &result
+        code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        msg = fmt.Sprintf("Incorrect result: %s!\n", genFormula(sreq.Operands, sreq.Operator, sresp.Result, false))
+        return
     }
 
     //一切都ok，则算是一次完整的请求
-    result.Id = sresp.Id
-    result.Code = unicorn.RESULT_CODE_SUCCESS
-    result.Msg = fmt.Sprintf("Success.(%s)", sresp.Formula)
-    return &result
+    //result.Id = sresp.Id
+    code = unicorn.RESULT_CODE_SUCCESS
+    msg = fmt.Sprintf("Success.(%s)", sresp.Formula)
+    return
 }
 
 //New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现

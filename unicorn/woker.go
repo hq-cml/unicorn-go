@@ -130,8 +130,14 @@ func (unc *Unicorn) createWorker() {
                 }
             } else {
                 timer.Stop() //!!立刻停止异步定时器
-                result = unc.plugin.CheckResponse(raw_request, data)
-                result.Elapse = time.Duration(end - start)
+                code, msg := unc.plugin.CheckResponse(raw_request, data)
+                result = &CallResult{
+                    Id     : raw_request.Id,
+                    //Req    : raw_request,
+                    Code   : code,
+                    Msg    : msg,
+                    Elapse : time.Duration(end - start),
+                }
             }
 
             unc.saveResult(result) //结果存入通道
