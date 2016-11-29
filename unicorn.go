@@ -57,6 +57,7 @@ func showReport(count_map map[unicorn.ResultCode]int, unc *unicorn.Unicorn) {
     fmt.Println("Success requests:", success_cnt)
     fmt.Println("Ignore  requests:", unc.IgnoreCnt)
     fmt.Println("Average TPS     :", tps)
+    fmt.Println("Percent of Succ :", fmt.Sprintf("%.3f", 100*(float64(success_cnt)/float64(unc.AllCnt))), "%")
     fmt.Println("Time    Duration:", unc.Duration)
     fmt.Println()
 

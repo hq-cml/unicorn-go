@@ -12,6 +12,7 @@ import (
     "net"
     "bufio"
     "io"
+    "sync/atomic"
 )
 
 //兜底的错误处理，以defer的形式存在
@@ -159,8 +160,9 @@ func (unc *Unicorn)checkSigStopNonBlock(){
 
 //实际的交互逻辑
 func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, error){
-    //总请求计数+1
-    unc.AllCnt ++
+    //总请求计数+1，一个大坑++操作是非原子的，需要使用atomic.AddXXX
+    //unc.AllCnt ++
+    atomic.AddUint64(&unc.AllCnt, 1)
 
     //发送请求
     n, err := sendRequest(conn, raw_request.Req)
@@ -222,10 +224,12 @@ func recvResponse(conn net.Conn) ([]byte, int, error) {
 //保存结果:将结果存入通道
 func (unc *Unicorn) saveResult(result *CallResult) bool {
     if unc.status == STOPPED && unc.stopFlag {
-        unc.IgnoreCnt++
+        //unc.IgnoreCnt++ //++操作非原子，需要用atomic
+        atomic.AddUint64(&unc.IgnoreCnt, 1)
         log.Logger.Info("Ignore result :" + fmt.Sprintf("Id=%d, Code=%d, Msg=%s, Elaspe=%v", result.Id, result.Code, result.Msg, result.Elapse))
         return false
     }
+
     unc.resultChan <- result
     return true
 }

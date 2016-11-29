@@ -89,7 +89,7 @@ func NewUnicorn(
         stopFlag   : false,
         status     : ORIGINAL,
         resultChan : resultChan,
-        AllCnt   : 0,
+        AllCnt     : 0,
         IgnoreCnt  : 0,
         pool       : pool,
         throttle   : throttle,
