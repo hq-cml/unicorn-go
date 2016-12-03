@@ -1,4 +1,5 @@
 package unicorn
+
 /*
  * 基础类型定义
  */

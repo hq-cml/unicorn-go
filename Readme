@@ -1,7 +1,47 @@
-unicorn based on golang
+ __    __   __   __   __    ______   ______   .______    __   __          ______   ______
+|  |  |  | |  \ |  | |  |  /      | /  __  \  |   _  \  |  \ |  |        /      | /  __  \
+|  |  |  | |   \|  | |  | |  ,----'|  |  |  | |  |_)  | |   \|  |  ___  |  ,----'|  |  |  |
+|  |  |  | |  . `  | |  | |  |     |  |  |  | |      /  |  . `  | .___. |  |  --.|  |  |  |
+|  `--'  | |  |\   | |  | |  `----.|  `--'  | |  |\  \-.|  |\   |       |  `--| ||  `--'  |
+ \______/  |__| \__| |__|  \______| \______/  | _| `.__||__| \__|        \______| \______/
 
-一个基于Golang的TCP client框架。
+====================================== Description ========================================
+    Unicorn-go is a TCP client framework that you can customize your logical business code
+and not to care about networking processing and event process. Unicorn is responsible for
+them. Unicorn-go is Unicorn's implementation based on golang. Reference Unicorn, you can
+see: https://github.com/hq-cml/unicorn.
 
-测试：
-go test -run=TestStart github.com/hq-cml/unicorn-go/plugin -v
-go test -run=TestStop  github.com/hq-cml/unicorn-go/plugin -v
+    In plugin directory, there are some production cases based on unicorn. You can refer
+them to write your business code.
+
+    ./plugin/equation.go -- a tcp pressure tester for math equation.
+    ./plugin/echo        -- a tcp pressure tester for echo back server.
+
+======================================== Usage ============================================
+Usage: unicorn -c <concurrency>|-q <qps> [-h <ip>] [-p <port>] [-D <duration>] [-k <boolean>]
+
+Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!
+
+ -h <hostname>      server hostname (default 127.0.0.1)
+ -p <port>          server port (default 9527)
+ -c <concurrency>   number of parallel connections
+ -q <qps>           qps-- the frequence you wanted for requests
+ -t <timeout>       time out of per request (default 50 ms)
+ -D <duration>      test time duration for requests (default 5s)
+ -k <boolean>       true = keep alive, false = reconnect (default true)
+ -H                 show help information
+
+======================================== Note ============================================
+Please make sure the argu 'c' and 'q' not to be set at the same time!!!
+
+When the argu 'c' is set, the qps will be the test result. As many as possible.
+
+Otherwise when the argu 'q' is set, the concurency will be calculate automaticlly. The
+equation is : concurrency ≈ (timeout / (1e9 / qps))+1
+
+======================================== Run ============================================
+Equation：
+go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
+./unicorn -c 100 -D 5                                           # Begin Test
+
+Echo:
