@@ -9,7 +9,7 @@
     Unicorn-go is a TCP client framework that you can customize your logical business code
 and not to care about networking processing and event process. Unicorn is responsible for
 them. Unicorn-go is Unicorn's implementation based on golang. Reference Unicorn, you can
-see: https://github.com/hq-cml/unicorn.
+refer: https://github.com/hq-cml/unicorn.
 
     In plugin directory, there are some production cases based on unicorn. You can refer
 them to write your business code.
