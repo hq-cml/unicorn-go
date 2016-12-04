@@ -14,8 +14,10 @@ refer: https://github.com/hq-cml/unicorn.
     In plugin directory, there are some production cases based on unicorn. You can refer
 them to write your business code.
 
-    ./plugin/equation.go -- a tcp pressure tester for math equation.
     ./plugin/echo        -- a tcp pressure tester for echo back server.
+    ./plugin/equation.go -- a tcp pressure tester for math equation.
+    ./plugin/reversi.go  -- a tcp client for reversi. The server is
+                            https://github.com/hq-cml/reversi.
 
 ======================================== Usage ============================================
 Usage: unicorn -c <concurrency>|-q <qps> [-h <ip>] [-p <port>] [-D <duration>] [-k <boolean>]
@@ -40,14 +42,16 @@ Otherwise when the argu 'q' is set, the concurency will be calculate automaticll
 equation is : concurrency ≈ (timeout / (1e9 / qps))+1
 
 ======================================== Run ============================================
-Equation：
-go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
-./unicorn -c 100 -D 5                                           # Begin Test
-
 Echo:
 Start Mossad. refer: https://github.com/hq-cml/mossad    # Run The server
 ./unicorn -c 10 -D 3 -k 1                                # Begin Test: concurrency: 10, keepalive
 ./unicorn -c 10 -D 3 -k 0                                # Begin Test: concurrency: 10, no keepalive
 ./unicorn -q 1000 -D 3 -k 1                              # Begin Test: qps: 1000, keepalive
 ./unicorn -q 1000 -D 3 -k 0                              # Begin Test: qps: 1000, no keepalive
+
+Equation：
+go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
+./unicorn -c 100 -D 5                                           # Begin Test
+
+Reversi:
 
