@@ -85,8 +85,9 @@ func main() {
 
     address := fmt.Sprintf("%s:%s", *ip, *port)
 
-    //初始化Plugin
-    plg := plugin.NewTcpEquationPlugin()
+    //初始化Plugin //TODO 配置化
+    //plg := plugin.NewTcpEquationPlugin()
+    plg := plugin.NewTcpEchoPlugin()
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 100)   //结果回收通道
