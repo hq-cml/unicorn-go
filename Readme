@@ -16,7 +16,7 @@ them to write your business code.
 
     ./plugin/echo        -- a tcp pressure tester for echo back server.
     ./plugin/equation.go -- a tcp pressure tester for math equation.
-    ./plugin/reversi.go  -- a tcp client for reversi. The server is
+    ./plugin/reversi.go  -- a tcp client for reversi. To get the reversi server, you can see:
                             https://github.com/hq-cml/reversi.
 
 ======================================== Usage ============================================
