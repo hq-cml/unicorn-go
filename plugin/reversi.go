@@ -8,17 +8,32 @@ package plugin
 import (
     "fmt"
     "github.com/hq-cml/unicorn-go/unicorn"
-    "github.com/hq-cml/go-case/random"
+    "github.com/hq-cml/reversi"
+)
+
+type ReversiStatus int8
+
+const (
+    REVERSI_ORIGIN  ReversiStatus = iota   //初始状态，这个状态下，client应该上报姓名
+    REVERSI_PUSH_NAME                      //已上报了自己的名字
+    REVERSI_PLACING                        //对弈过程中，循环确定落子
+    REVERSI_DONE                           //对弈结束
 )
 
 type TcpReversiPlugin struct {
+    status ReversiStatus  //当前状态
+    role   int            //本方是黑子还是白子
 }
 
-//*TcpEchoPlugin实现PluginIntfs接口
+//*TcpReversiPlugin实现PluginIntfs接口
 //生成请求
 func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
-    //生成随机字符串，作为消息
-    msg := random.GenRandString(10)
+    var msg string
+    if (tep.status == REVERSI_ORIGIN) {
+        msg = "Nhq"  //上报姓名
+        tep.status = REVERSI_PUSH_NAME
+    }
+
 
     raw_reqest := unicorn.RawRequest{Id: id, Req: []byte(msg)}
     return raw_reqest
@@ -26,6 +41,31 @@ func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
 
 //check服务端返回是否能够构成一个完整包
 func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []byte)(unicorn.ServerRespStatus) {
+    if tep.status == REVERSI_PUSH_NAME {
+        return unicorn.SER_ERROR //不可能出现这种情况，因为一开始就会上报姓名
+    }else if tep.status == REVERSI_PUSH_NAME {
+        if len(response) < 2 {
+            return unicorn.SER_NEEDMORE
+        }
+
+        return unicorn.OK
+        if string(response[0:2]) == "U1" {
+            fmt.Println("AI：黑子")
+            tep.role = reversi.BLACK
+            return unicorn.SER_OK
+        }else if string(response[0:2]) == "U0" {
+            fmt.Println("AI：白子")
+            tep.role = reversi.WIITE
+            return unicorn.SER_OK
+        }else{
+            return unicorn.SER_ERROR
+        }
+    } else if tep.status == REVERSI_PLACING {
+
+    } else {
+
+    }
+
     len1 := len(raw_req.Req)
     len2 := len(response)
 
@@ -41,21 +81,34 @@ func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
 
 //校验服务端返回是否符合预期
 func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) (code unicorn.ResultCode, msg string) {
-    str1 := string(raw_req.Req)
-    str2 := string(response)
 
-    if str1 == str2 {
-        code = unicorn.RESULT_CODE_SUCCESS
-        msg = fmt.Sprintf("Success.(%s)", string(response))
-    } else {
+    if tep.status == REVERSI_PUSH_NAME {
+        //算是一种错误的返回，不可能出现这种情况
         code = unicorn.RESULT_CODE_ERROR_RESPONSE
-        msg = fmt.Sprintf("Incorrectly formatted Resp: %s!\n", string(response))
-    }
+    }else if tep.status == REVERSI_PUSH_NAME {
+        if string(response[0:2]) == "U1" {
+            fmt.Println("AI：黑子")
+            tep.role = reversi.BLACK
+            code = unicorn.RESULT_CODE_SUCCESS
+        }else if string(response[0:2]) == "U0" {
+            fmt.Println("AI：白子")
+            tep.role = reversi.WIITE
+            code = unicorn.RESULT_CODE_SUCCESS
+        }else{
+            return unicorn.SER_ERROR
+        }
+    } else if tep.status == REVERSI_PLACING {
 
+    } else {
+
+    }
     return
 }
 
-//New函数，创建TcpEquationPlugin，它是PluginIntfs的一个实现
-func TcpReversiPlugin() unicorn.PluginIntfs {
-    return &TcpReversiPlugin{ }
+//New函数，创建TcpReversiPlugin，它是PluginIntfs的一个实现
+func NewTcpReversiPlugin() unicorn.PluginIntfs {
+    return &TcpReversiPlugin{
+        status : REVERSI_ORIGIN,
+        role: reversi.BLACK,      //默认本方是黑子
+    }
 }
