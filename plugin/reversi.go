@@ -9,6 +9,7 @@ import (
     "fmt"
     "github.com/hq-cml/unicorn-go/unicorn"
     "github.com/hq-cml/reversi"
+    "github.com/hq-cml/reversi/client/helper"
 )
 
 type ReversiStatus int8
@@ -44,38 +45,22 @@ func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
     if tep.status == REVERSI_PUSH_NAME {
         return unicorn.SER_ERROR //不可能出现这种情况，因为一开始就会上报姓名
     }else if tep.status == REVERSI_PUSH_NAME {
-        if len(response) < 2 {
+        //上报姓名之后，服务端应该返回U1\n或者U0\n表示本方是哪一种棋子
+        l = len(response)
+        if l < 3 {
             return unicorn.SER_NEEDMORE
+        } else if l > 3 && l < 69 {
+            return unicorn.SER_NEEDMORE
+        } else if l==3 || l==69 {
+            return unicorn.OK
         }
 
-        return unicorn.OK
-        if string(response[0:2]) == "U1" {
-            fmt.Println("AI：黑子")
-            tep.role = reversi.BLACK
-            return unicorn.SER_OK
-        }else if string(response[0:2]) == "U0" {
-            fmt.Println("AI：白子")
-            tep.role = reversi.WIITE
-            return unicorn.SER_OK
-        }else{
-            return unicorn.SER_ERROR
-        }
+        return unicorn.SER_ERROR
+
     } else if tep.status == REVERSI_PLACING {
 
     } else {
 
-    }
-
-    len1 := len(raw_req.Req)
-    len2 := len(response)
-
-    //对于回显程序，长度相同则表示包符合预期
-    if len1 == len2 {
-        return unicorn.SER_OK
-    } else if len1 > len2 {
-        return unicorn.SER_NEEDMORE
-    } else {
-        return unicorn.SER_ERROR
     }
 }
 
@@ -95,7 +80,18 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
             tep.role = reversi.WIITE
             code = unicorn.RESULT_CODE_SUCCESS
         }else{
-            return unicorn.SER_ERROR
+            code = unicorn.RESULT_CODE_ERROR_RESPONSE
+        }
+
+        //存在一种特殊情况：U1和棋盘放在一个TCP包中发过来了
+        l := len(response)
+        if l == 69 {
+            //打印棋盘
+            fmt.Println("Got->",string(response[4:l]))
+            chessBoard := helper.ConverBytesToChessBoard(response[4:l-1])
+            reversi.PrintChessboard(chessBoard)
+
+            //分析棋盘，AI落子
         }
     } else if tep.status == REVERSI_PLACING {
 
