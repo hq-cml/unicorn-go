@@ -10,7 +10,10 @@ import (
     "github.com/hq-cml/unicorn-go/unicorn"
     "github.com/hq-cml/reversi"
     "github.com/hq-cml/reversi/client/helper"
+    "os"
 )
+
+var chessBoard []byte //当前全局变量棋盘
 
 type ReversiStatus int8
 
@@ -30,10 +33,16 @@ type TcpReversiPlugin struct {
 //生成请求
 func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
     var msg string
-    if (tep.status == REVERSI_ORIGIN) {
-        msg = "Nhq"  //上报姓名
-        tep.status = REVERSI_PUSH_NAME
+    switch tep.status{
+        case REVERSI_ORIGIN:
+            msg = "Nhq"  //上报姓名
+            tep.status = REVERSI_PUSH_NAME
+        case REVERSI_PUSH_NAME:
+            fmt.Println("Something wrong!")
+            os.Exit(1)
+        case REVERSI_PLACING
     }
+
 
 
     raw_reqest := unicorn.RawRequest{Id: id, Req: []byte(msg)}
@@ -67,10 +76,10 @@ func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
 //校验服务端返回是否符合预期
 func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) (code unicorn.ResultCode, msg string) {
 
-    if tep.status == REVERSI_PUSH_NAME {
+    if tep.status == REVERSI_PUSH_NAME {               //当前处于初始状态
         //算是一种错误的返回，不可能出现这种情况
         code = unicorn.RESULT_CODE_ERROR_RESPONSE
-    }else if tep.status == REVERSI_PUSH_NAME {
+    }else if tep.status == REVERSI_PUSH_NAME {         //当前处于已上报姓名阶段
         if string(response[0:2]) == "U1" {
             fmt.Println("AI：黑子")
             tep.role = reversi.BLACK
@@ -88,11 +97,14 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
         if l == 69 {
             //打印棋盘
             fmt.Println("Got->",string(response[4:l]))
-            chessBoard := helper.ConverBytesToChessBoard(response[4:l-1])
+            chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
             reversi.PrintChessboard(chessBoard)
 
-            //分析棋盘，AI落子
+            code = unicorn.RESULT_CODE_SUCCESS
         }
+
+        //棋盘已经保存在了全局变量，将状态变成PLACING
+        tep.status = REVERSI_PLACING
     } else if tep.status == REVERSI_PLACING {
 
     } else {
