@@ -58,7 +58,7 @@ const (
     RESULT_CODE_ERROR_RESPONSE  ResultCode = 2002 //错误的响应内容
     RESULT_CODE_ERROR_CALEE     ResultCode = 2003 //被调用方内部错误
     RESULT_CODE_FATAL_CALL      ResultCode = 3001 //调用过程中的致命错误
-    //RESULT_CODE_DONE            ResultCode = 4001 //结束，框架应该断开连接
+    RESULT_CODE_DONE            ResultCode = 4001 //结束，框架收到这个状态码应该主动断开连接
 )
 
 //调用结果的结构。
