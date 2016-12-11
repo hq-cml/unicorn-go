@@ -88,21 +88,20 @@ func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
             //穷举对弈过程中的种种情况
             l := len(response)
             if l == 3 && string(response[0:2]) == "W1" {
-                fmt.Println("Got->",string(response[0:l-1]), ". [ You win! ]")
+                //You win!
                 return unicorn.SER_OK
             } else if l == 3 && string(response[0:2]) == "W0" {
-                fmt.Println("Got->",string(response[0:l-1]), ". [ You lose! ]")
+                //You lose!
                 return unicorn.SER_OK
             } else if l == 3 && string(response[0:2]) == "W2" {
-                fmt.Println("Got->",string(response[0:l-1]), ". [ Draw tie! ]")
+                //Draw tie!
                 return unicorn.SER_OK
             } else if l == 2 && string(response[0:1]) == "G" {
-                fmt.Println("Got->",string(response[0:l-1]), ". [ Game over! ]")
+                //Game over!
                 os.Exit(0)
                 return unicorn.SER_OK
             } else if l == 66 && string(response[0:1]) == "B"{
-                fmt.Println("Got->",string(buf[0:length]))
-                //printBoard(buf[1:length-1])
+                //中间棋局
                 return unicorn.SER_OK
             } else if string(response[0:1]) == "B" && l <66 {
                 return unicorn.SER_NEEDMORE
@@ -149,6 +148,34 @@ func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
             //棋盘已经保存在了全局变量，将状态变成PLACING
             trp.status = REVERSI_STATUS_PLACING
         case REVERSI_STATUS_PLACING:
+            //穷举对弈过程中的种种情况
+            l := len(response)
+            if l == 3 && string(response[0:2]) == "W1" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ You win! ]")
+                code = unicorn.RESULT_CODE_SUCCESS
+            } else if l == 3 && string(response[0:2]) == "W0" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ You lose! ]")
+                code = unicorn.RESULT_CODE_SUCCESS
+            } else if l == 3 && string(response[0:2]) == "W2" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ Draw tie! ]")
+                code = unicorn.RESULT_CODE_SUCCESS
+            } else if l == 2 && string(response[0:1]) == "G" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ Game over! ]")
+                code = unicorn.RESULT_CODE_SUCCESS
+                os.Exit(0)
+
+            } else if l == 66 && string(response[0:1]) == "B"{
+                fmt.Println("Got->",string(response[0:l]))
+                //棋盘保存于全局变量
+                trp.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
+                //打印棋盘
+                reversi.PrintChessboard(trp.chessBoard)
+                //轮到本方落子
+                trp.myTurn = true
+                code = unicorn.RESULT_CODE_SUCCESS
+            }  else {
+                code = unicorn.RESULT_CODE_ERROR_RESPONSE
+            }
     }
 
     return
