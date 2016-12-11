@@ -27,6 +27,7 @@ const (
 type TcpReversiPlugin struct {
     status ReversiStatus  //当前状态
     role   int            //本方是黑子还是白子
+    myTurn bool           //表示是否轮到己方落子
 }
 
 //*TcpReversiPlugin实现PluginIntfs接口
@@ -42,6 +43,12 @@ func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
             fmt.Println("Something wrong!")
             os.Exit(1)
         case REVERSI_STATUS_PLACING:
+            if tep.myTurn {
+                //分析棋局，落子
+            }else{
+                //返回空字符表示跳过本次交互，等待服务端返回数据
+                msg = ""
+            }
 
     }
 
@@ -101,7 +108,8 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
                 chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
                 //打印棋盘
                 reversi.PrintChessboard(chessBoard)
-
+                //轮到本方落子
+                tep.myTurn = true
                 code = unicorn.RESULT_CODE_SUCCESS
             }
 
@@ -117,6 +125,7 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
 func NewTcpReversiPlugin() unicorn.PluginIntfs {
     return &TcpReversiPlugin{
         status : REVERSI_STATUS_ORIGIN,
-        role: reversi.BLACK,      //默认本方是黑子
+        role:    reversi.BLACK,          //默认本方是黑子
+        myTurn:  false,                  //非本方落子
     }
 }

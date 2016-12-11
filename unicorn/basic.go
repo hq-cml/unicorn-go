@@ -89,6 +89,8 @@ const (
 //插件接口，实现这个接口，嵌入unicorn，即可组成完整的客户端
 type PluginIntfs interface {
     //必选函数：生成请求内容
+    //某些时候，处理了一个包，下一个包不一定要主动发送，而是需要被动等待
+    //这种情况下，需要将RawRequest.Req设置为""
     GenRequest(id int64) RawRequest
     //必选函数：判断接收到的内容，是否是完整的响应包
     CheckFull(rawReq *RawRequest, response []byte)(ServerRespStatus)

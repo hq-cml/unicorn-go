@@ -170,12 +170,15 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
     //unc.AllCnt ++
     atomic.AddUint64(&unc.AllCnt, 1)
 
-    //发送请求
-    n, err := sendRequest(conn, raw_request.Req)
-    if err != nil {
-        return nil, err
+    //只有实际请求有内容，才发送请求，否则直接进入等待服务端返回阶段
+    //某些时候，处理了一个包，下一个包不一定要主动发送，而是需要被动等待
+    if len(raw_request.Req) > 0 {
+        n, err := sendRequest(conn, raw_request.Req)
+        if err != nil {
+            return nil, err
+        }
+        _ = n
     }
-    _ = n
 
     data := make([]byte, 0)
     Loop:
