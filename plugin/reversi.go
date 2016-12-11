@@ -54,6 +54,7 @@ func (trp *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
                     row, col := ai.AiPlayStep(trp.chessBoard, canDown, int8(trp.role))
                     msg = helper.ConvertRowColToServerProtocal(row, col)
                     fmt.Printf("AI(%d)落子：%d,%d, cmd:%s\n", trp.role, row, col, msg)
+                    trp.myTurn = false
                 }
             }else{
                 //返回空字符表示本次交互仍然是等待服务端返回数据
@@ -167,7 +168,7 @@ func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
             } else if l == 66 && string(response[0:1]) == "B"{
                 fmt.Println("Got->",string(response[0:l]))
                 //棋盘保存于全局变量
-                trp.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
+                trp.chessBoard = helper.ConverBytesToChessBoard(response[1:l-1])
                 //打印棋盘
                 reversi.PrintChessboard(trp.chessBoard)
                 //轮到本方落子
