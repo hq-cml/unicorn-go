@@ -111,7 +111,7 @@ func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
             }
     }
 
-
+    return unicorn.SER_ERROR
 }
 
 //校验服务端返回是否符合预期

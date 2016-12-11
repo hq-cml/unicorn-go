@@ -54,4 +54,5 @@ go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
 ./unicorn -c 100 -D 5                                           # Begin Test
 
 Reversi:
-
+Run the java reversi server
+./unicorn -c 1 -D 1000 -t 100000      #等待对方落子的过程要比较大
