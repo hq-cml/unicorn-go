@@ -37,7 +37,7 @@ func (trp *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
     //状态机
     switch trp.status{
         case REVERSI_STATUS_ORIGIN:
-            msg = "Nhq"  //上报姓名
+            msg = "Nunicorn"  //上报姓名
             trp.status = REVERSI_STATUS_PUSH_NAME
         case REVERSI_STATUS_PUSH_NAME:
             fmt.Println("Something wrong!")
@@ -60,7 +60,9 @@ func (trp *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
                 //返回空字符表示本次交互仍然是等待服务端返回数据
                 msg = ""
             }
-
+        case REVERSI_STATUS_PLACING:
+            fmt.Println("Something wrong!~")
+            os.Exit(1)
     }
 
     raw_reqest := unicorn.RawRequest{Id: id, Req: []byte(msg)}
@@ -99,7 +101,6 @@ func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
                 return unicorn.SER_OK
             } else if l == 2 && string(response[0:1]) == "G" {
                 //Game over!
-                os.Exit(0)
                 return unicorn.SER_OK
             } else if l == 66 && string(response[0:1]) == "B"{
                 //中间棋局
@@ -109,6 +110,9 @@ func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
             } else {
                 return unicorn.SER_ERROR
             }
+        case REVERSI_STATUS_DONE:
+            fmt.Println("Something wrong!!")
+            os.Exit(1)
     }
 
     return unicorn.SER_ERROR
@@ -163,8 +167,8 @@ func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
             } else if l == 2 && string(response[0:1]) == "G" {
                 fmt.Println("Got->",string(response[0:l-1]), ". [ Game over! ]")
                 code = unicorn.RESULT_CODE_SUCCESS
+                trp.status = REVERSI_STATUS_DONE //完成状态
                 os.Exit(0)
-
             } else if l == 66 && string(response[0:1]) == "B"{
                 fmt.Println("Got->",string(response[0:l]))
                 //棋盘保存于全局变量

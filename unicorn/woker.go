@@ -173,7 +173,7 @@ func (unc *Unicorn)interact(raw_request *RawRequest, conn net.Conn) ([]byte, err
     //只有实际请求有内容，才发送请求，否则直接进入等待服务端返回阶段
     //某些时候，处理了一个包，下一个包不一定要主动发送，而是需要被动等待
     if len(raw_request.Req) > 0 {
-        fmt.Println("Send", string(raw_request.Req))
+        //fmt.Println("Send", string(raw_request.Req))
         n, err := sendRequest(conn, raw_request.Req)
         if err != nil {
             return nil, err
