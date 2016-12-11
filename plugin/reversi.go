@@ -31,18 +31,18 @@ type TcpReversiPlugin struct {
 
 //*TcpReversiPlugin实现PluginIntfs接口
 //生成请求
-func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
+func (trp *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
     var msg string
     //状态机
-    switch tep.status{
+    switch trp.status{
         case REVERSI_STATUS_ORIGIN:
             msg = "Nhq"  //上报姓名
-            tep.status = REVERSI_STATUS_PUSH_NAME
+            trp.status = REVERSI_STATUS_PUSH_NAME
         case REVERSI_STATUS_PUSH_NAME:
             fmt.Println("Something wrong!")
             os.Exit(1)
         case REVERSI_STATUS_PLACING:
-            if tep.myTurn {
+            if trp.myTurn {
                 //分析棋局，落子
             }else{
                 //返回空字符表示本次交互仍然是等待服务端返回数据
@@ -56,9 +56,9 @@ func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
 }
 
 //check服务端返回是否能够构成一个完整包
-func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []byte)(unicorn.ServerRespStatus) {
+func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []byte)(unicorn.ServerRespStatus) {
     //状态机
-    switch tep.status{
+    switch trp.status{
         case REVERSI_STATUS_ORIGIN:
             return unicorn.SER_ERROR //不可能出现这种情况，因为一开始就会上报姓名
         case REVERSI_STATUS_PUSH_NAME:
@@ -80,19 +80,19 @@ func (tep *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
 }
 
 //校验服务端返回是否符合预期
-func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) (code unicorn.ResultCode, msg string) {
+func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response []byte) (code unicorn.ResultCode, msg string) {
     //状态机
-    switch tep.status{
+    switch trp.status{
         case REVERSI_STATUS_ORIGIN:
             code = unicorn.RESULT_CODE_ERROR_RESPONSE //不可能出现这种情况
         case REVERSI_STATUS_PUSH_NAME:
             if string(response[0:2]) == "U1" {
                 fmt.Println("AI：黑子")
-                tep.role = reversi.BLACK
+                trp.role = reversi.BLACK
                 code = unicorn.RESULT_CODE_SUCCESS
             }else if string(response[0:2]) == "U0" {
                 fmt.Println("AI：白子")
-                tep.role = reversi.WIITE
+                trp.role = reversi.WIITE
                 code = unicorn.RESULT_CODE_SUCCESS
             }else{
                 code = unicorn.RESULT_CODE_ERROR_RESPONSE
@@ -104,16 +104,16 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
 
                 fmt.Println("Got->",string(response[4:l]))
                 //棋盘保存于全局变量
-                tep.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
+                trp.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
                 //打印棋盘
-                reversi.PrintChessboard(tep.chessBoard)
+                reversi.PrintChessboard(trp.chessBoard)
                 //轮到本方落子
-                tep.myTurn = true
+                trp.myTurn = true
                 code = unicorn.RESULT_CODE_SUCCESS
             }
 
             //棋盘已经保存在了全局变量，将状态变成PLACING
-            tep.status = REVERSI_STATUS_PLACING
+            trp.status = REVERSI_STATUS_PLACING
         case REVERSI_STATUS_PLACING:
     }
 
