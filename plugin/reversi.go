@@ -24,10 +24,10 @@ const (
 )
 
 type TcpReversiPlugin struct {
-    status     ReversiStatus  //当前状态
-    role       int            //本方是黑子还是白子
-    myTurn     bool           //表示是否轮到己方落子
-    chessBoard []byte         //当前全局变量棋盘
+    status     ReversiStatus       //当前状态
+    role       int                 //本方是黑子还是白子
+    myTurn     bool                //表示是否轮到己方落子
+    chessBoard reversi.ChessBoard  //当前全局变量棋盘
 }
 
 //*TcpReversiPlugin实现PluginIntfs接口
@@ -188,6 +188,5 @@ func NewTcpReversiPlugin() unicorn.PluginIntfs {
         status    : REVERSI_STATUS_ORIGIN,
         role      : reversi.BLACK,          //默认本方是黑子
         myTurn    : false,                  //非本方落子
-        chessBoard: nil,                    //棋局
     }
 }
