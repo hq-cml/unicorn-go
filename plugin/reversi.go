@@ -13,8 +13,6 @@ import (
     "os"
 )
 
-var chessBoard []byte //当前全局变量棋盘
-
 type ReversiStatus int8
 
 const (
@@ -25,9 +23,10 @@ const (
 )
 
 type TcpReversiPlugin struct {
-    status ReversiStatus  //当前状态
-    role   int            //本方是黑子还是白子
-    myTurn bool           //表示是否轮到己方落子
+    status     ReversiStatus  //当前状态
+    role       int            //本方是黑子还是白子
+    myTurn     bool           //表示是否轮到己方落子
+    chessBoard []byte         //当前全局变量棋盘
 }
 
 //*TcpReversiPlugin实现PluginIntfs接口
@@ -46,7 +45,7 @@ func (tep *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
             if tep.myTurn {
                 //分析棋局，落子
             }else{
-                //返回空字符表示跳过本次交互，等待服务端返回数据
+                //返回空字符表示本次交互仍然是等待服务端返回数据
                 msg = ""
             }
 
@@ -105,9 +104,9 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
 
                 fmt.Println("Got->",string(response[4:l]))
                 //棋盘保存于全局变量
-                chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
+                tep.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
                 //打印棋盘
-                reversi.PrintChessboard(chessBoard)
+                reversi.PrintChessboard(tep.chessBoard)
                 //轮到本方落子
                 tep.myTurn = true
                 code = unicorn.RESULT_CODE_SUCCESS
@@ -124,8 +123,9 @@ func (tep *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
 //New函数，创建TcpReversiPlugin，它是PluginIntfs的一个实现
 func NewTcpReversiPlugin() unicorn.PluginIntfs {
     return &TcpReversiPlugin{
-        status : REVERSI_STATUS_ORIGIN,
-        role:    reversi.BLACK,          //默认本方是黑子
-        myTurn:  false,                  //非本方落子
+        status    : REVERSI_STATUS_ORIGIN,
+        role      : reversi.BLACK,          //默认本方是黑子
+        myTurn    : false,                  //非本方落子
+        chessBoard: nil,                    //棋局
     }
 }
