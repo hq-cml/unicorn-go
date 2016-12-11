@@ -53,6 +53,7 @@ func showReport(count_map map[unicorn.ResultCode]int, unc *unicorn.Unicorn) {
     //打印最终结果
     fmt.Println()
     fmt.Println()
+    fmt.Println("[FINAL REPORT]")
     fmt.Println("All     requests:", unc.AllCnt)
     fmt.Println("Success requests:", success_cnt)
     fmt.Println("Ignore  requests:", unc.IgnoreCnt)

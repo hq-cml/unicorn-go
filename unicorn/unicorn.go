@@ -188,6 +188,8 @@ func ConvertCodePlain(code ResultCode) string {
         code_plain = "Callee Error"
     case RESULT_CODE_FATAL_CALL:
         code_plain = "Call Fatal Error"
+    case RESULT_CODE_DONE:
+        code_plain = "Done!"
     default:
         code_plain = "Unknown result code"
     }
