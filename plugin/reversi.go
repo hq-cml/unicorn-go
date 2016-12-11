@@ -74,17 +74,41 @@ func (trp *TcpReversiPlugin)CheckFull(raw_req *unicorn.RawRequest, response []by
             return unicorn.SER_ERROR //不可能出现这种情况，因为一开始就会上报姓名
         case REVERSI_STATUS_PUSH_NAME:
             //上报姓名之后，服务端应该返回U1\n或者U0\n表示本方是哪一种棋子
-            l = len(response)
+            l := len(response)
             if l < 3 {
                 return unicorn.SER_NEEDMORE
             } else if l > 3 && l < 69 {
                 return unicorn.SER_NEEDMORE
             } else if l==3 || l==69 { //69是因为有的时候服务端会将首局棋盘一起发送过来
-                return unicorn.OK
+                return unicorn.SER_OK
             }
 
             return unicorn.SER_ERROR
         case REVERSI_STATUS_PLACING:
+            //穷举对弈过程中的种种情况
+            l := len(response)
+            if l == 3 && string(response[0:2]) == "W1" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ You win! ]")
+                return unicorn.SER_OK
+            } else if l == 3 && string(response[0:2]) == "W0" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ You lose! ]")
+                return unicorn.SER_OK
+            } else if l == 3 && string(response[0:2]) == "W2" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ Draw tie! ]")
+                return unicorn.SER_OK
+            } else if l == 2 && string(response[0:1]) == "G" {
+                fmt.Println("Got->",string(response[0:l-1]), ". [ Game over! ]")
+                os.Exit(0)
+                return unicorn.SER_OK
+            } else if l == 66 && string(response[0:1]) == "B"{
+                fmt.Println("Got->",string(buf[0:length]))
+                //printBoard(buf[1:length-1])
+                return unicorn.SER_OK
+            } else if string(response[0:1]) == "B" && l <66 {
+                return unicorn.SER_NEEDMORE
+            } else {
+                return unicorn.SER_ERROR
+            }
     }
 
 
@@ -112,7 +136,6 @@ func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
             //存在一种特殊情况：U1和棋盘放在一个TCP包中发过来了
             l := len(response)
             if l == 69 {
-
                 fmt.Println("Got->",string(response[4:l]))
                 //棋盘保存于全局变量
                 trp.chessBoard = helper.ConverBytesToChessBoard(response[4:l-1])
