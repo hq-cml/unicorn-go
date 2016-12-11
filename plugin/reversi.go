@@ -11,6 +11,7 @@ import (
     "github.com/hq-cml/reversi"
     "github.com/hq-cml/reversi/client/helper"
     "os"
+    "github.com/hq-cml/reversi/ai"
 )
 
 type ReversiStatus int8
@@ -43,7 +44,17 @@ func (trp *TcpReversiPlugin) GenRequest(id int64) unicorn.RawRequest {
             os.Exit(1)
         case REVERSI_STATUS_PLACING:
             if trp.myTurn {
-                //分析棋局，落子
+                //分析棋局，首先查看是否可落子
+                step , canDown := ai.CheckChessboard(trp.chessBoard, int8(trp.role))
+                if step == 0 {
+                    fmt.Println("目前没有位置可落子，等待对方落子。。。")
+                    msg = ""//返回空字符表示本次交互仍然是等待服务端返回数据
+                } else {
+                    //Ai落子
+                    row, col := ai.AiPlayStep(trp.chessBoard, canDown, int8(trp.role))
+                    msg = helper.ConvertRowColToServerProtocal(row, col)
+                    fmt.Printf("AI(%d)落子：%d,%d, cmd:%s\n", trp.role, row, col, msg)
+                }
             }else{
                 //返回空字符表示本次交互仍然是等待服务端返回数据
                 msg = ""
