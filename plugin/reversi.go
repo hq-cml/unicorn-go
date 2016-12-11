@@ -167,9 +167,10 @@ func (trp *TcpReversiPlugin) CheckResponse(raw_req unicorn.RawRequest, response 
                 code = unicorn.RESULT_CODE_SUCCESS
             } else if l == 2 && string(response[0:1]) == "G" {
                 fmt.Println("Got->",string(response[0:l-1]), ". [ Game over! ]")
+                //RESULT_CODE_DONE，通知框架结束程序！！
                 code = unicorn.RESULT_CODE_DONE
-                trp.status = REVERSI_STATUS_DONE //完成状态
-                os.Exit(0)
+                trp.status = REVERSI_STATUS_DONE //棋局完成状态
+                //os.Exit(0)
             } else if l == 66 && string(response[0:1]) == "B"{
                 fmt.Println("Got->",string(response[0:l]))
                 //棋盘保存于全局变量

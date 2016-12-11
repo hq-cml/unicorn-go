@@ -111,6 +111,8 @@ func (unc *Unicorn) createWorker() {
             //上面是一个同步的过程，所以到了此处，可能是已经超时了
             //所以检测超时标志，只有未超时，才有必要继续
             var result *CallResult
+            var code ResultCode
+            var msg string
             if err != nil {
                 timer.Stop() //!!立刻停止异步定时器
                 result = &CallResult{
@@ -130,7 +132,7 @@ func (unc *Unicorn) createWorker() {
                 }
             } else {
                 timer.Stop() //!!立刻停止异步定时器
-                code, msg := unc.plugin.CheckResponse(raw_request, data)
+                code, msg = unc.plugin.CheckResponse(raw_request, data)
                 result = &CallResult{
                     Id     : raw_request.Id,
                     //Req    : raw_request,
@@ -141,6 +143,11 @@ func (unc *Unicorn) createWorker() {
             }
 
             unc.saveResult(result) //结果存入通道
+
+            //如果收到了停止的状态码，则框架主动结束探测
+            if code == RESULT_CODE_DONE {
+                unc.Stop()
+            }
 
             //如果不是长连接模式，则退出
             if !unc.keepalive {

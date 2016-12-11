@@ -96,5 +96,6 @@ type PluginIntfs interface {
     //必选函数：判断接收到的内容，是否是完整的响应包
     CheckFull(rawReq *RawRequest, response []byte)(ServerRespStatus)
     //必选函数：检查响应内容是否符合用户需求
+    //某些时候，需要通知框架在本次check之后主动结束请求，需要返回RESULT_CODE_DONE
     CheckResponse(rawReq RawRequest, response []byte) (ResultCode, string)
 }
