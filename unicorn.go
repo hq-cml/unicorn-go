@@ -16,7 +16,7 @@ var c *int = flag.Int("c", 0, "concurrency")
 var q *int = flag.Int("q", 0, "qps")
 var t *int64 = flag.Int64("t", 50, "timeout")
 var D *int64 = flag.Int64("D", 5, "port")
-var k *bool = flag.Bool("k", true, "keep alive")
+var k *bool = flag.Bool("k", false, "keep alive")
 var H *bool = flag.Bool("H", false, "help")
 var v *bool = flag.Bool("v", false, "verbose")
 
@@ -32,8 +32,9 @@ func showUseage() {
     fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests");
     fmt.Println(" -t <timeout>       time out of per request (default 50 ms)");
     fmt.Println(" -D <duration>      test time duration for requests (default 5s)");
-    fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default true)");
-    fmt.Println(" -H                 show help information\n");
+    fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default false)");
+    fmt.Println(" -H                 show help information");
+    fmt.Println(" -v                 verbose (default false)\n");
 }
 
 func checkParams(q int64, c int64) bool{
@@ -97,7 +98,7 @@ func main() {
     qps         := uint32(*q)                            //期望的qps
     duration    := time.Duration(*D) * time.Second       //探测持续时间
     concurrency := uint32(*c)                            //并发度
-
+    fmt.Println("AAAAAAAAAAAA", *k)
     unc, err := unicorn.NewUnicorn(address, plg, timeout, qps, duration, concurrency, *k, result_chan)
     if err != nil {
         log.Logger.Fatal(fmt.Sprintf("Unicorn initialization failing: %s.\n",  err))

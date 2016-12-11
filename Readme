@@ -30,8 +30,9 @@ Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!
  -q <qps>           qps-- the frequence you wanted for requests
  -t <timeout>       time out of per request (default 50 ms)
  -D <duration>      test time duration for requests (default 5s)
- -k <boolean>       true = keep alive, false = reconnect (default true)
+ -k <boolean>       true = keep alive, false = reconnect (default false)
  -H                 show help information
+ -v                 verbos (default false)
 
 ======================================== Note ============================================
 Please make sure the argu 'c' and 'q' not to be set at the same time!!!
@@ -54,5 +55,5 @@ go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
 ./unicorn -c 100 -D 5                                           # Begin Test
 
 Reversi:
-Run the java reversi server
-./unicorn -c 1 -D 1000 -t 100000      #等待对方落子的过程要比较大
+Run the java reversi server              #refer:https://github.com/hq-cml/reversi
+./unicorn -c 1 -D 1000 -t 100000 -k      #等待对方落子的过程要比较大的时间和超时忍受，并且，必须是长连接模式！！
