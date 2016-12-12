@@ -45,11 +45,11 @@ equation is : concurrency ≈ (timeout / (1e9 / qps))+1
 
 ======================================== Run ============================================
 Echo:
-Start Mossad. refer: https://github.com/hq-cml/mossad    # Run The server
-./unicorn -c 10 -D 3 -k 1                                # Begin Test: concurrency: 10, keepalive
-./unicorn -c 10 -D 3 -k 0                                # Begin Test: concurrency: 10, no keepalive
-./unicorn -q 1000 -D 3 -k 1                              # Begin Test: qps: 1000, keepalive
-./unicorn -q 1000 -D 3 -k 0                              # Begin Test: qps: 1000, no keepalive
+Start Mossad.                      # Run The server. Refer: https://github.com/hq-cml/mossad
+./unicorn -c 10 -D 3 -m 0 -k       # Begin Test: concurrency: 10, keepalive
+./unicorn -c 10 -D 3 -m 0          # Begin Test: concurrency: 10, no keepalive
+./unicorn -q 1000 -D 3 -m 0 -k     # Begin Test: qps: 1000, keepalive
+./unicorn -q 1000 -D 3 -m 0        # Begin Test: qps: 1000, no keepalive
 
 Equation：
 go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
