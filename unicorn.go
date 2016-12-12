@@ -8,12 +8,14 @@ import (
     "github.com/hq-cml/unicorn-go/unicorn"
     "github.com/hq-cml/unicorn-go/plugin"
     "time"
+    "os"
 )
 
 var ip *string = flag.String("h", "127.0.0.1", "ip")
 var port *string = flag.String("p", "9527", "port")
 var c *int = flag.Int("c", 0, "concurrency")
 var q *int = flag.Int("q", 0, "qps")
+var m *int = flag.Int("m", 0, "reversi")
 var t *int64 = flag.Int64("t", 50, "timeout")
 var D *int64 = flag.Int64("D", 5, "port")
 var k *bool = flag.Bool("k", false, "keep alive")
@@ -22,19 +24,20 @@ var v *bool = flag.Bool("v", false, "verbose")
 
 func showUseage() {
     fmt.Println()
-    fmt.Println("Usage: unicorn -c <concurrency>|-q <qps> [-h <ip>] [-p <port>] [-D <duration>] [-k <boolean>]");
+    fmt.Println("Usage: unicorn -c <concurrency>|-q <qps> [-h <ip>] [-p <port>] [-D <duration>] [-k <boolean>]")
     fmt.Println()
-    fmt.Println("Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!");
+    fmt.Println("Note: !!!!- The argu 'c' and 'q' can't be set at the same time -!!!!")
     fmt.Println()
-    fmt.Println(" -h <hostname>      server hostname (default 127.0.0.1)");
-    fmt.Println(" -p <port>          server port (default 9527)");
-    fmt.Println(" -c <concurrency>   number of parallel connections");
-    fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests");
-    fmt.Println(" -t <timeout>       time out of per request (default 50 ms)");
-    fmt.Println(" -D <duration>      test time duration for requests (default 5s)");
-    fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default false)");
-    fmt.Println(" -H                 show help information");
-    fmt.Println(" -v                 verbose (default false)\n");
+    fmt.Println(" -h <hostname>      server hostname (default 127.0.0.1)")
+    fmt.Println(" -p <port>          server port (default 9527)")
+    fmt.Println(" -c <concurrency>   number of parallel connections")
+    fmt.Println(" -q <qps>           qps-- the frequence you wanted for requests")
+    fmt.Println(" -t <timeout>       time out of per request (default 50 ms)")
+    fmt.Println(" -D <duration>      test time duration for requests (default 5s)")
+    fmt.Println(" -k <boolean>       true = keep alive, false = reconnect (default false)")
+    fmt.Println(" -m <mode>          0-echo; 1-equation; 2-reversi")
+    fmt.Println(" -H                 show help information")
+    fmt.Println(" -v                 verbose (default false)\n")
 }
 
 func checkParams(q int64, c int64) bool{
@@ -87,10 +90,20 @@ func main() {
 
     address := fmt.Sprintf("%s:%s", *ip, *port)
 
-    //初始化Plugin //TODO 配置化
-    //plg := plugin.NewTcpEquationPlugin()
-    //plg := plugin.NewTcpEchoPlugin()
-    plg := plugin.NewTcpReversiPlugin()
+    //初始化Plugin
+    mode := int(*m)
+    var plg unicorn.PluginIntfs
+    switch mode{
+        case 0:
+            plg = plugin.NewTcpEquationPlugin()
+        case 1:
+            plg = plugin.NewTcpEchoPlugin()
+        case 2:
+            plg = plugin.NewTcpReversiPlugin()
+        default:
+            fmt.Println("Mode Wrong!")
+            os.Exit(1)
+    }
 
     //初始化Unicorn
     result_chan := make(chan *unicorn.CallResult, 100)   //结果回收通道
@@ -98,7 +111,6 @@ func main() {
     qps         := uint32(*q)                            //期望的qps
     duration    := time.Duration(*D) * time.Second       //探测持续时间
     concurrency := uint32(*c)                            //并发度
-    fmt.Println("AAAAAAAAAAAA", *k)
     unc, err := unicorn.NewUnicorn(address, plg, timeout, qps, duration, concurrency, *k, result_chan)
     if err != nil {
         log.Logger.Fatal(fmt.Sprintf("Unicorn initialization failing: %s.\n",  err))
