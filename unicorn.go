@@ -95,9 +95,9 @@ func main() {
     var plg unicorn.PluginIntfs
     switch mode{
         case 0:
-            plg = plugin.NewTcpEquationPlugin()
-        case 1:
             plg = plugin.NewTcpEchoPlugin()
+        case 1:
+            plg = plugin.NewTcpEquationPlugin()
         case 2:
             plg = plugin.NewTcpReversiPlugin()
         default:
