@@ -54,7 +54,10 @@ Start Mossad.                      # Run The server. Refer: https://github.com/h
 Equation：
 go test -run=TestServer github.com/hq-cml/unicorn-go/plugin -v  # Run The server
 ./unicorn -c 100 -D 5 -m 1                                      # Begin Test
+./unicorn -c 100 -D 5 -m 1 -k                                   # Begin Test, keepalive
+./unicorn -q 10000 -D 5 -m 1                                    # Begin Test, 指定qps，自动计算并发
+./unicorn -q 10000 -D 5 -m 1 -k                                 # Begin Test, 指定qps，自动计算并发，keepalive
 
 Reversi:
 Run the java reversi server              #refer:https://github.com/hq-cml/reversi
-./unicorn -c 1 -D 1000 -t 100000 -m 2-k  #等待对方落子的过程要比较大的时间和超时忍受，并且，必须是长连接模式！！
+./unicorn -c 1 -D 1000 -t 100000 -m 2-k  #等待对方落子的过程要比较大的时间和超时忍受，防止对方不是AI，并且，必须是长连接模式！！
